@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.DS_Store
+
+# Rust
+target/
+
+# Local scratch (tokens minted by scripts, tmp composition output)
+.tmp/
