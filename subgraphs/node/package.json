@@ -1,0 +1,26 @@
+{
+  "name": "@federation-platform/node",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "sync": "tsx src/sync.ts",
+    "sync:check": "tsx src/sync.ts --check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm test && pnpm sync:check"
+  },
+  "dependencies": {
+    "@apollo/subgraph": "2.13.3",
+    "@federation-platform/global-id": "workspace:*",
+    "graphql": "^16",
+    "graphql-yoga": "^6.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
