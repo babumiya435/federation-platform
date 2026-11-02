@@ -18,4 +18,7 @@ than a plan. Categories: **by hand**, **assisted**, **fully generated**.
 
 ## Corrections made to generated work
 
-None recorded yet.
+1. Seed ids were generated as `p1`, `r1`, ... I asked for meaningful ids; they are now slugs
+   (`trail-backpack`, `trail-backpack-review-1`) and new reviews follow the same format.
+2. Generated code used one-letter callback parameters (`p`, `r`, `t`, `e`, `ctx`). I asked for
+   descriptive names across the codebase and the agent renamed them.

@@ -21,40 +21,40 @@ describe("product subgraph", () => {
     const first = await run(`{ products(first: 2) { edges { cursor node { name } } pageInfo { hasNextPage endCursor } } }`);
     expect(first.errors).toBeUndefined();
     const page = first.data.products;
-    expect(page.edges.map((e: any) => e.node.name)).toEqual(["Trail Backpack", "Insulated Bottle"]);
+    expect(page.edges.map((edge: any) => edge.node.name)).toEqual(["Trail Backpack", "Insulated Bottle"]);
     expect(page.pageInfo.hasNextPage).toBe(true);
 
     const second = await run(
       `query($after: String) { products(first: 2, after: $after) { edges { node { name } } } }`,
       { after: page.pageInfo.endCursor },
     );
-    expect(second.data.products.edges.map((e: any) => e.node.name)).toEqual(["Camp Stove", "Headlamp"]);
+    expect(second.data.products.edges.map((edge: any) => edge.node.name)).toEqual(["Camp Stove", "Headlamp"]);
   });
 
   it("resolves Review.product back to the product", async () => {
     const result = await run(`{ products(first: 1) { edges { node { reviews { product { name } } } } } }`);
     const reviews = result.data.products.edges[0].node.reviews;
     expect(reviews.length).toBeGreaterThan(0);
-    expect(reviews.every((r: any) => r.product.name === "Trail Backpack")).toBe(true);
+    expect(reviews.every((review: any) => review.product.name === "Trail Backpack")).toBe(true);
   });
 
   it("returns a typed success from addReview", async () => {
-    const productId = encodeGlobalId("Product", "p3");
+    const productId = encodeGlobalId("Product", "camp-stove");
     const result = await run(
-      `mutation($input: AddReviewInput!) { addReview(input: $input) { __typename ... on AddReviewSuccess { review { rating product { id } } } } }`,
+      `mutation($input: AddReviewInput!) { addReview(input: $input) { __typename ... on AddReviewSuccess { review { id rating product { id } } } } }`,
       { input: { productId, rating: 4, body: "ok", authorEmail: "t@example.com" } },
     );
     expect(result.errors).toBeUndefined();
     expect(result.data.addReview).toEqual({
       __typename: "AddReviewSuccess",
-      review: { rating: 4, product: { id: productId } },
+      review: { id: encodeGlobalId("Review", "camp-stove-review-1"), rating: 4, product: { id: productId } },
     });
   });
 
   it("returns typed errors for an unknown product and a bad rating", async () => {
     const mutation = `mutation($input: AddReviewInput!) { addReview(input: $input) { __typename ... on UserError { message } } }`;
     const missing = await run(mutation, {
-      input: { productId: encodeGlobalId("Product", "nope"), rating: 3, body: "x", authorEmail: "t@example.com" },
+      input: { productId: encodeGlobalId("Product", "no-such-product"), rating: 3, body: "x", authorEmail: "t@example.com" },
     });
     expect(missing.data.addReview.__typename).toBe("ProductNotFoundError");
 
@@ -64,12 +64,12 @@ describe("product subgraph", () => {
     expect(garbled.data.addReview.__typename).toBe("ProductNotFoundError");
 
     const wrongType = await run(mutation, {
-      input: { productId: encodeGlobalId("Review", "r1"), rating: 3, body: "x", authorEmail: "t@example.com" },
+      input: { productId: encodeGlobalId("Review", "trail-backpack-review-1"), rating: 3, body: "x", authorEmail: "t@example.com" },
     });
     expect(wrongType.data.addReview.__typename).toBe("ProductNotFoundError");
 
     const badRating = await run(mutation, {
-      input: { productId: encodeGlobalId("Product", "p1"), rating: 9, body: "x", authorEmail: "t@example.com" },
+      input: { productId: encodeGlobalId("Product", "trail-backpack"), rating: 9, body: "x", authorEmail: "t@example.com" },
     });
     expect(badRating.data.addReview.__typename).toBe("InvalidRatingError");
   });
@@ -78,10 +78,10 @@ describe("product subgraph", () => {
     const query = `query($reps: [_Any!]!) { _entities(representations: $reps) { __typename ... on Product { name } ... on Review { rating } } }`;
     const result = await run(query, {
       reps: [
-        { __typename: "Product", id: encodeGlobalId("Product", "p2") },
-        { __typename: "Review", id: encodeGlobalId("Review", "r1") },
-        { __typename: "Product", id: encodeGlobalId("Product", "missing") },
-        { __typename: "Product", id: encodeGlobalId("Review", "r1") },
+        { __typename: "Product", id: encodeGlobalId("Product", "insulated-bottle") },
+        { __typename: "Review", id: encodeGlobalId("Review", "trail-backpack-review-1") },
+        { __typename: "Product", id: encodeGlobalId("Product", "no-such-product") },
+        { __typename: "Product", id: encodeGlobalId("Review", "trail-backpack-review-1") },
         { __typename: "Product", id: "garbage" },
       ],
     });
