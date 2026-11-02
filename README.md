@@ -20,6 +20,12 @@ know of them.
 - Rust (stable) via rustup
 - Docker with Compose
 
+## Decisions
+
+- [0001 Repo layout](docs/decisions/0001-repo-layout.md)
+- [0002 Global ids](docs/decisions/0002-global-ids.md)
+- [0003 Authorization](docs/decisions/0003-authorization.md)
+
 ## Layout
 
 See [docs/decisions/0001-repo-layout.md](docs/decisions/0001-repo-layout.md).
@@ -34,7 +40,7 @@ pnpm check      # every check, same as CI
 ## Status
 
 - [x] Repo scaffold
-- [ ] Product subgraph
+- [x] Product subgraph (`subgraphs/product`, schema generated from code and committed)
 - [ ] Node subgraph
 - [ ] Composition and router
 - [ ] `@rateLimit` plugin

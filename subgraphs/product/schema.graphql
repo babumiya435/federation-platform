@@ -1,0 +1,79 @@
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key", "@requiresScopes"])
+
+input AddReviewInput {
+  productId: ID!
+  rating: Int!
+  body: String!
+  authorEmail: String!
+}
+
+union AddReviewResult = AddReviewSuccess | ProductNotFoundError | InvalidRatingError
+
+type AddReviewSuccess {
+  review: Review!
+}
+
+type InvalidRatingError implements UserError {
+  message: String!
+  rating: Int!
+}
+
+type Mutation {
+  addReview(input: AddReviewInput!): AddReviewResult!
+}
+
+interface Node {
+  id: ID!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type Product implements Node
+  @key(fields: "id")
+{
+  id: ID!
+  name: String!
+  price: Float!
+  internalCost: Float! @requiresScopes(scopes: [["catalog:read:internal"]])
+  reviews: [Review!]!
+}
+
+type ProductNotFoundError implements UserError {
+  message: String!
+  productId: ID!
+}
+
+type Query {
+  """All products, Relay-paginated."""
+  products(before: String, after: String, first: Int, last: Int): QueryProductsConnection!
+}
+
+type QueryProductsConnection {
+  pageInfo: PageInfo!
+  edges: [QueryProductsConnectionEdge!]!
+}
+
+type QueryProductsConnectionEdge {
+  node: Product!
+  cursor: String!
+}
+
+type Review implements Node
+  @key(fields: "id")
+{
+  id: ID!
+  rating: Int!
+  body: String!
+  authorEmail: String! @requiresScopes(scopes: [["reviews:read:pii"]])
+  product: Product!
+}
+
+interface UserError {
+  message: String!
+}

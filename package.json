@@ -5,7 +5,7 @@
   "description": "Small federated GraphQL platform: Rust Hive Router plugin, TypeScript subgraphs, CI schema governance.",
   "packageManager": "pnpm@9.15.9",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "check": "pnpm -r --if-present run check"
