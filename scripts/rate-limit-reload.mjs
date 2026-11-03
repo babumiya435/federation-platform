@@ -3,9 +3,10 @@
 // edit the supergraph the router is polling and watch the new limit take effect.
 //   ROUTER_URL=http://localhost:4000/graphql node scripts/rate-limit-reload.mjs
 //
-// It rewrites supergraph/supergraph.graphql in place (same file, so the container's
-// bind mount sees it) and always restores the original, even on failure.
-import { readFileSync, writeFileSync } from "node:fs";
+// It changes supergraph/supergraph.graphql two ways: rewriting it in place, and replacing
+// it with a new file (what `git checkout`, most editors and atomic deploys do). Both must be
+// picked up. It always restores the original, even on failure.
+import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { createChecks, post, tokenFor } from "./lib/stack.mjs";
@@ -13,7 +14,14 @@ import { createChecks, post, tokenFor } from "./lib/stack.mjs";
 const supergraphPath = fileURLToPath(new URL("../supergraph/supergraph.graphql", import.meta.url));
 const POLL_WAIT_MS = 8000; // router polls every 5s
 
+const replacementPath = `${supergraphPath}.replacing`;
 const original = readFileSync(supergraphPath, "utf8");
+
+/** Replaces the file with a new one (new inode), the way `git checkout` and atomic deploys do. */
+function replaceSupergraph(content) {
+  writeFileSync(replacementPath, content);
+  renameSync(replacementPath, supergraphPath);
+}
 const PRODUCTS_LIMIT = "@rateLimit(limit: 5, windowSeconds: 10) @join__field(graph: PRODUCT)";
 if (!original.includes(PRODUCTS_LIMIT)) {
   console.error("could not find the Query.products limit in the supergraph; update this script");
@@ -48,7 +56,17 @@ try {
   writeFileSync(supergraphPath, original);
   await sleep(POLL_WAIT_MS);
   expect("restoring the supergraph restores the limit (5)", (await callsUntilLimited("rl-reload-3")) === 5, null);
+
+  // 4. replacing the file with a new one is picked up too. A single-file bind mount missed
+  // this on Docker Desktop (new content, stale modified-time), so the folder is mounted.
+  replaceSupergraph(original.replace(PRODUCTS_LIMIT, "@rateLimit(limit: 3, windowSeconds: 10) @join__field(graph: PRODUCT)"));
+  await sleep(POLL_WAIT_MS);
+  expect("a replaced file (not rewritten in place) is picked up: the new limit (3) applies", (await callsUntilLimited("rl-reload-4")) === 3, null);
+  replaceSupergraph(original);
+  await sleep(POLL_WAIT_MS);
+  expect("replacing it back restores the limit (5)", (await callsUntilLimited("rl-reload-5")) === 5, null);
 } finally {
+  rmSync(replacementPath, { force: true });
   writeFileSync(supergraphPath, original);
 }
 
