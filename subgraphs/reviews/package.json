@@ -1,0 +1,31 @@
+{
+  "name": "@federation-platform/reviews",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "schema:generate": "tsx src/generate-schema.ts",
+    "schema:check": "tsx src/generate-schema.ts --check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm test && pnpm schema:check"
+  },
+  "dependencies": {
+    "@apollo/subgraph": "2.13.3",
+    "@federation-platform/global-id": "workspace:^",
+    "@federation-platform/owner-check": "workspace:^",
+    "@federation-platform/rate-limit-directive": "workspace:^",
+    "@pothos/core": "^4.16.0",
+    "@pothos/plugin-directives": "^4.3.3",
+    "@pothos/plugin-federation": "^4.5.4",
+    "graphql": "^16",
+    "graphql-yoga": "^6.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

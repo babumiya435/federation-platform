@@ -1,13 +1,13 @@
 import { createYoga } from "graphql-yoga";
 import { describe, expect, it } from "vitest";
 import { encodeGlobalId } from "@federation-platform/global-id";
-import { CatalogStore } from "./data.js";
+import { ProductStore } from "./data.js";
 import { schema } from "./schema.js";
 
 // Tests go through Yoga's fetch handler so the schema and the executor share one
 // copy of `graphql` (importing `execute` here would load a second, ESM copy).
 async function run(query: string, variables: Record<string, unknown> = {}) {
-  const yoga = createYoga({ schema, context: () => ({ store: new CatalogStore() }) });
+  const yoga = createYoga({ schema, context: () => ({ store: new ProductStore() }) });
   const response = await yoga.fetch("http://localhost/graphql", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -31,67 +31,26 @@ describe("product subgraph", () => {
     expect(second.data.products.edges.map((edge: any) => edge.node.name)).toEqual(["Camp Stove", "Headlamp"]);
   });
 
-  it("resolves Review.product back to the product", async () => {
-    const result = await run(`{ products(first: 1) { edges { node { reviews { product { name } } } } } }`);
-    const reviews = result.data.products.edges[0].node.reviews;
-    expect(reviews.length).toBeGreaterThan(0);
-    expect(reviews.every((review: any) => review.product.name === "Trail Backpack")).toBe(true);
+  it("owns Product only: reviews and the mutation live in the reviews subgraph", async () => {
+    const result = await run(`{ __schema { types { name } mutationType { name } } }`);
+    const names = result.data.__schema.types.map((type: any) => type.name);
+    expect(names).toContain("Product");
+    expect(names).not.toContain("Review");
+    expect(result.data.__schema.mutationType).toBeNull();
   });
 
-  it("returns a typed success from addReview", async () => {
-    const productId = encodeGlobalId("Product", "camp-stove");
-    const result = await run(
-      `mutation($input: AddReviewInput!) { addReview(input: $input) { __typename ... on AddReviewSuccess { review { id rating product { id } } } } }`,
-      { input: { productId, rating: 4, body: "ok", authorEmail: "t@example.com" } },
-    );
-    expect(result.errors).toBeUndefined();
-    expect(result.data.addReview).toEqual({
-      __typename: "AddReviewSuccess",
-      review: { id: encodeGlobalId("Review", "camp-stove-review-1"), rating: 4, product: { id: productId } },
-    });
-  });
-
-  it("returns typed errors for an unknown product and a bad rating", async () => {
-    const mutation = `mutation($input: AddReviewInput!) { addReview(input: $input) { __typename ... on UserError { message } } }`;
-    const missing = await run(mutation, {
-      input: { productId: encodeGlobalId("Product", "no-such-product"), rating: 3, body: "x", authorEmail: "t@example.com" },
-    });
-    expect(missing.data.addReview.__typename).toBe("ProductNotFoundError");
-
-    const garbled = await run(mutation, {
-      input: { productId: "###", rating: 3, body: "x", authorEmail: "t@example.com" },
-    });
-    expect(garbled.data.addReview.__typename).toBe("ProductNotFoundError");
-
-    const wrongType = await run(mutation, {
-      input: { productId: encodeGlobalId("Review", "trail-backpack-review-1"), rating: 3, body: "x", authorEmail: "t@example.com" },
-    });
-    expect(wrongType.data.addReview.__typename).toBe("ProductNotFoundError");
-
-    const badRating = await run(mutation, {
-      input: { productId: encodeGlobalId("Product", "trail-backpack"), rating: 9, body: "x", authorEmail: "t@example.com" },
-    });
-    expect(badRating.data.addReview.__typename).toBe("InvalidRatingError");
-  });
-
-  it("resolves entity references by global id and returns null otherwise", async () => {
-    const query = `query($reps: [_Any!]!) { _entities(representations: $reps) { __typename ... on Product { name } ... on Review { rating } } }`;
+  it("resolves a Product by its global id, and returns null otherwise", async () => {
+    const query = `query($reps: [_Any!]!) { _entities(representations: $reps) { __typename ... on Product { name internalCost } } }`;
     const result = await run(query, {
       reps: [
         { __typename: "Product", id: encodeGlobalId("Product", "insulated-bottle") },
-        { __typename: "Review", id: encodeGlobalId("Review", "trail-backpack-review-1") },
-        { __typename: "Product", id: encodeGlobalId("Product", "no-such-product") },
+        { __typename: "Product", id: encodeGlobalId("Product", "missing") },
         { __typename: "Product", id: encodeGlobalId("Review", "trail-backpack-review-1") },
         { __typename: "Product", id: "garbage" },
       ],
     });
+    // internalCost is protected at the router; at the subgraph the field is readable.
     expect(result.errors).toBeUndefined();
-    expect(result.data._entities).toEqual([
-      { __typename: "Product", name: "Insulated Bottle" },
-      { __typename: "Review", rating: 5 },
-      null,
-      null,
-      null,
-    ]);
+    expect(result.data._entities).toEqual([{ __typename: "Product", name: "Insulated Bottle", internalCost: 9.2 }, null, null, null]);
   });
 });

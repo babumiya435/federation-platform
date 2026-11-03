@@ -64,11 +64,12 @@ scalar requiresScopes__Scope
 enum join__Graph {
   NODE @join__graph(name: "node", url: "http://node:4002/graphql")
   PRODUCT @join__graph(name: "product", url: "http://product:4001/graphql")
+  REVIEWS @join__graph(name: "reviews", url: "http://reviews:4004/graphql")
 }
 
 directive @rateLimit(cost: Int! = 1, limit: Int!, windowSeconds: Int!) on FIELD_DEFINITION
 
-type Query @join__type(graph: NODE) @join__type(graph: PRODUCT) {
+type Query @join__type(graph: NODE) @join__type(graph: PRODUCT) @join__type(graph: REVIEWS) {
   node(id: ID!): Node @join__field(graph: NODE)
   """
   All products, Relay-paginated.
@@ -76,33 +77,20 @@ type Query @join__type(graph: NODE) @join__type(graph: PRODUCT) {
   products(before: String, after: String, first: Int, last: Int): QueryProductsConnection! @rateLimit(limit: 5, windowSeconds: 10) @join__field(graph: PRODUCT)
 }
 
-type Product implements Node @join__type(graph: NODE, key: "id", resolvable: false) @join__type(graph: PRODUCT, key: "id") @join__implements(graph: NODE, interface: "Node") @join__implements(graph: PRODUCT, interface: "Node") {
+type Product implements Node @join__type(graph: NODE, key: "id", resolvable: false) @join__type(graph: PRODUCT, key: "id") @join__type(graph: REVIEWS, key: "id", extension: true) @join__implements(graph: NODE, interface: "Node") @join__implements(graph: PRODUCT, interface: "Node") {
   id: ID!
   name: String! @join__field(graph: PRODUCT)
   price: Float! @join__field(graph: PRODUCT)
   internalCost: Float! @join__field(graph: PRODUCT) @requiresScopes(scopes: [["catalog:read:internal"]])
-  reviews: [Review!]! @rateLimit(limit: 20, windowSeconds: 10) @join__field(graph: PRODUCT)
+  reviews: [Review!]! @rateLimit(limit: 20, windowSeconds: 10) @join__field(graph: REVIEWS)
 }
 
-type Review implements Node @join__type(graph: NODE, key: "id", resolvable: false) @join__type(graph: PRODUCT, key: "id") @join__implements(graph: NODE, interface: "Node") @join__implements(graph: PRODUCT, interface: "Node") {
+type Review implements Node @join__type(graph: NODE, key: "id", resolvable: false) @join__type(graph: REVIEWS, key: "id") @join__implements(graph: NODE, interface: "Node") @join__implements(graph: REVIEWS, interface: "Node") {
   id: ID!
-  rating: Int! @join__field(graph: PRODUCT)
-  body: String! @join__field(graph: PRODUCT)
-  authorEmail: String! @join__field(graph: PRODUCT) @requiresScopes(scopes: [["reviews:read:pii"]])
-  product: Product! @join__field(graph: PRODUCT)
-}
-
-type AddReviewSuccess @join__type(graph: PRODUCT) {
-  review: Review!
-}
-
-type InvalidRatingError implements UserError @join__type(graph: PRODUCT) @join__implements(graph: PRODUCT, interface: "UserError") {
-  message: String!
-  rating: Int!
-}
-
-type Mutation @join__type(graph: PRODUCT) {
-  addReview(input: AddReviewInput!): AddReviewResult! @rateLimit(limit: 2, windowSeconds: 10)
+  rating: Int! @join__field(graph: REVIEWS)
+  body: String! @join__field(graph: REVIEWS)
+  authorEmail: String! @join__field(graph: REVIEWS) @requiresScopes(scopes: [["reviews:read:pii"]])
+  product: Product! @join__field(graph: REVIEWS)
 }
 
 type PageInfo @join__type(graph: PRODUCT) {
@@ -110,11 +98,6 @@ type PageInfo @join__type(graph: PRODUCT) {
   hasPreviousPage: Boolean!
   startCursor: String
   endCursor: String
-}
-
-type ProductNotFoundError implements UserError @join__type(graph: PRODUCT) @join__implements(graph: PRODUCT, interface: "UserError") {
-  message: String!
-  productId: ID!
 }
 
 type QueryProductsConnection @join__type(graph: PRODUCT) {
@@ -127,17 +110,35 @@ type QueryProductsConnectionEdge @join__type(graph: PRODUCT) {
   cursor: String!
 }
 
-interface Node @join__type(graph: NODE) @join__type(graph: PRODUCT) {
+type AddReviewSuccess @join__type(graph: REVIEWS) {
+  review: Review!
+}
+
+type InvalidRatingError implements UserError @join__type(graph: REVIEWS) @join__implements(graph: REVIEWS, interface: "UserError") {
+  message: String!
+  rating: Int!
+}
+
+type Mutation @join__type(graph: REVIEWS) {
+  addReview(input: AddReviewInput!): AddReviewResult! @rateLimit(limit: 2, windowSeconds: 10)
+}
+
+type ProductNotFoundError implements UserError @join__type(graph: REVIEWS) @join__implements(graph: REVIEWS, interface: "UserError") {
+  message: String!
+  productId: ID!
+}
+
+interface Node @join__type(graph: NODE) @join__type(graph: PRODUCT) @join__type(graph: REVIEWS) {
   id: ID!
 }
 
-interface UserError @join__type(graph: PRODUCT) {
+interface UserError @join__type(graph: REVIEWS) {
   message: String!
 }
 
-union AddReviewResult @join__type(graph: PRODUCT) @join__unionMember(graph: PRODUCT, member: "AddReviewSuccess") @join__unionMember(graph: PRODUCT, member: "ProductNotFoundError") @join__unionMember(graph: PRODUCT, member: "InvalidRatingError") = AddReviewSuccess | ProductNotFoundError | InvalidRatingError
+union AddReviewResult @join__type(graph: REVIEWS) @join__unionMember(graph: REVIEWS, member: "AddReviewSuccess") @join__unionMember(graph: REVIEWS, member: "ProductNotFoundError") @join__unionMember(graph: REVIEWS, member: "InvalidRatingError") = AddReviewSuccess | ProductNotFoundError | InvalidRatingError
 
-input AddReviewInput @join__type(graph: PRODUCT) {
+input AddReviewInput @join__type(graph: REVIEWS) {
   productId: ID!
   rating: Int!
   body: String!

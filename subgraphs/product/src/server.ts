@@ -1,9 +1,9 @@
 import { createServer } from "node:http";
 import { createYoga } from "graphql-yoga";
-import { CatalogStore } from "./data.js";
+import { ProductStore } from "./data.js";
 import { schema } from "./schema.js";
 
-const store = new CatalogStore();
+const store = new ProductStore();
 const yoga = createYoga({ schema, context: () => ({ store }), graphqlEndpoint: "/graphql" });
 const port = Number(process.env.PORT ?? 4001);
 

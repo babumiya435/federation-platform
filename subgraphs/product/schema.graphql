@@ -5,28 +5,6 @@ extend schema
 
 directive @rateLimit(cost: Int! = 1, limit: Int!, windowSeconds: Int!) on FIELD_DEFINITION
 
-input AddReviewInput {
-  productId: ID!
-  rating: Int!
-  body: String!
-  authorEmail: String!
-}
-
-union AddReviewResult = AddReviewSuccess | ProductNotFoundError | InvalidRatingError
-
-type AddReviewSuccess {
-  review: Review!
-}
-
-type InvalidRatingError implements UserError {
-  message: String!
-  rating: Int!
-}
-
-type Mutation {
-  addReview(input: AddReviewInput!): AddReviewResult! @rateLimit(limit: 2, windowSeconds: 10)
-}
-
 interface Node {
   id: ID!
 }
@@ -45,12 +23,6 @@ type Product implements Node
   name: String!
   price: Float!
   internalCost: Float! @requiresScopes(scopes: [["catalog:read:internal"]])
-  reviews: [Review!]! @rateLimit(limit: 20, windowSeconds: 10)
-}
-
-type ProductNotFoundError implements UserError {
-  message: String!
-  productId: ID!
 }
 
 type Query {
@@ -66,18 +38,4 @@ type QueryProductsConnection {
 type QueryProductsConnectionEdge {
   node: Product!
   cursor: String!
-}
-
-type Review implements Node
-  @key(fields: "id")
-{
-  id: ID!
-  rating: Int!
-  body: String!
-  authorEmail: String! @requiresScopes(scopes: [["reviews:read:pii"]])
-  product: Product!
-}
-
-interface UserError {
-  message: String!
 }

@@ -17,6 +17,19 @@ services:
       PORT: "4001"
     healthcheck: *subgraph-healthcheck
 
+  reviews:
+    image: federation-platform/reviews:local
+    build:
+      context: .
+      dockerfile: docker/subgraph.Dockerfile
+      args:
+        PACKAGE: "@federation-platform/reviews"
+    environment:
+      PORT: "4004"
+      # Reviews asks the product subgraph whether a product exists before adding a review for it.
+      PRODUCT_SUBGRAPH_URL: http://product:4001/graphql
+    healthcheck: *subgraph-healthcheck
+
   node:
     image: federation-platform/node:local
     build:
@@ -45,6 +58,8 @@ services:
       retries: 40
     depends_on:
       product:
+        condition: service_healthy
+      reviews:
         condition: service_healthy
       node:
         condition: service_healthy
