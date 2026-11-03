@@ -1,0 +1,22 @@
+# Router configuration. Limits and policy live in the supergraph, not here.
+
+supergraph:
+  source: file
+  path: /app/supergraph.graphql
+  # Re-read the file when it changes, so a recomposed supergraph goes live without a restart.
+  poll_interval: 5s
+
+jwt:
+  enabled: true
+  # Anonymous requests are allowed in; protected fields refuse them (ADR 0003).
+  require_authentication: false
+  jwks_providers:
+    - source: file
+      path: /app/auth/dev-jwks.json
+  allowed_algorithms: ["ES256"]
+
+authorization:
+  directives:
+    enabled: true
+    unauthorized:
+      mode: reject

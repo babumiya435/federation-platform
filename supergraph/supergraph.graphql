@@ -1,0 +1,143 @@
+schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.5", for: EXECUTION) @link(url: "https://specs.apollo.dev/requiresScopes/v0.1", for: SECURITY) {
+  query: Query
+  mutation: Mutation
+}
+
+directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+
+directive @join__field(
+  graph: join__Graph
+  requires: join__FieldSet
+  provides: join__FieldSet
+  type: String
+  external: Boolean
+  override: String
+  usedOverridden: Boolean
+  overrideLabel: String
+  contextArguments: [join__ContextArgument!]
+) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+
+input join__ContextArgument {
+  name: String!
+  type: String!
+  context: String!
+  selection: join__FieldValue!
+}
+
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+
+directive @join__type(
+  graph: join__Graph!
+  key: join__FieldSet
+  extension: Boolean! = false
+  resolvable: Boolean! = true
+  isInterfaceObject: Boolean! = false
+) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+
+directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+
+scalar join__FieldSet
+
+scalar join__FieldValue
+
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+scalar link__Import
+
+enum link__Purpose {
+  """
+  `SECURITY` features provide metadata necessary to securely resolve fields.
+  """
+  SECURITY
+  """
+  `EXECUTION` features provide metadata necessary for operation execution.
+  """
+  EXECUTION
+}
+
+directive @requiresScopes(scopes: [[requiresScopes__Scope!]!]!) on FIELD_DEFINITION | OBJECT | INTERFACE | SCALAR | ENUM
+
+scalar requiresScopes__Scope
+
+enum join__Graph {
+  NODE @join__graph(name: "node", url: "http://node:4002/graphql")
+  PRODUCT @join__graph(name: "product", url: "http://product:4001/graphql")
+}
+
+type Query @join__type(graph: NODE) @join__type(graph: PRODUCT) {
+  node(id: ID!): Node @join__field(graph: NODE)
+  """
+  All products, Relay-paginated.
+  """
+  products(before: String, after: String, first: Int, last: Int): QueryProductsConnection! @join__field(graph: PRODUCT)
+}
+
+type Product implements Node @join__type(graph: NODE, key: "id", resolvable: false) @join__type(graph: PRODUCT, key: "id") @join__implements(graph: NODE, interface: "Node") @join__implements(graph: PRODUCT, interface: "Node") {
+  id: ID!
+  name: String! @join__field(graph: PRODUCT)
+  price: Float! @join__field(graph: PRODUCT)
+  internalCost: Float! @join__field(graph: PRODUCT) @requiresScopes(scopes: [["catalog:read:internal"]])
+  reviews: [Review!]! @join__field(graph: PRODUCT)
+}
+
+type Review implements Node @join__type(graph: NODE, key: "id", resolvable: false) @join__type(graph: PRODUCT, key: "id") @join__implements(graph: NODE, interface: "Node") @join__implements(graph: PRODUCT, interface: "Node") {
+  id: ID!
+  rating: Int! @join__field(graph: PRODUCT)
+  body: String! @join__field(graph: PRODUCT)
+  authorEmail: String! @join__field(graph: PRODUCT) @requiresScopes(scopes: [["reviews:read:pii"]])
+  product: Product! @join__field(graph: PRODUCT)
+}
+
+type AddReviewSuccess @join__type(graph: PRODUCT) {
+  review: Review!
+}
+
+type InvalidRatingError implements UserError @join__type(graph: PRODUCT) @join__implements(graph: PRODUCT, interface: "UserError") {
+  message: String!
+  rating: Int!
+}
+
+type Mutation @join__type(graph: PRODUCT) {
+  addReview(input: AddReviewInput!): AddReviewResult!
+}
+
+type PageInfo @join__type(graph: PRODUCT) {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type ProductNotFoundError implements UserError @join__type(graph: PRODUCT) @join__implements(graph: PRODUCT, interface: "UserError") {
+  message: String!
+  productId: ID!
+}
+
+type QueryProductsConnection @join__type(graph: PRODUCT) {
+  pageInfo: PageInfo!
+  edges: [QueryProductsConnectionEdge!]!
+}
+
+type QueryProductsConnectionEdge @join__type(graph: PRODUCT) {
+  node: Product!
+  cursor: String!
+}
+
+interface Node @join__type(graph: NODE) @join__type(graph: PRODUCT) {
+  id: ID!
+}
+
+interface UserError @join__type(graph: PRODUCT) {
+  message: String!
+}
+
+union AddReviewResult @join__type(graph: PRODUCT) @join__unionMember(graph: PRODUCT, member: "AddReviewSuccess") @join__unionMember(graph: PRODUCT, member: "ProductNotFoundError") @join__unionMember(graph: PRODUCT, member: "InvalidRatingError") = AddReviewSuccess | ProductNotFoundError | InvalidRatingError
+
+input AddReviewInput @join__type(graph: PRODUCT) {
+  productId: ID!
+  rating: Int!
+  body: String!
+  authorEmail: String!
+}

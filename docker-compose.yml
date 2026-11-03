@@ -1,0 +1,43 @@
+services:
+  product:
+    build:
+      context: .
+      dockerfile: docker/subgraph.Dockerfile
+      args:
+        PACKAGE: "@federation-platform/product"
+    environment:
+      PORT: "4001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4001/graphql?query=%7B__typename%7D').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  node:
+    build:
+      context: .
+      dockerfile: docker/subgraph.Dockerfile
+      args:
+        PACKAGE: "@federation-platform/node"
+    environment:
+      PORT: "4002"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4002/graphql?query=%7B__typename%7D').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  router:
+    build:
+      context: .
+      dockerfile: docker/router.Dockerfile
+    ports:
+      - "${ROUTER_PORT:-4000}:4000"
+    volumes:
+      - ./supergraph/supergraph.graphql:/app/supergraph.graphql:ro
+      - ./auth/dev-jwks.json:/app/auth/dev-jwks.json:ro
+    depends_on:
+      product:
+        condition: service_healthy
+      node:
+        condition: service_healthy

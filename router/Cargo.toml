@@ -1,0 +1,15 @@
+[package]
+name = "federation-router"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "federation-router"
+path = "src/main.rs"
+
+[dependencies]
+hive-router = "=0.3.10"
+# The #[hive_router::main] macro expands to ntex code, so the crate must depend on it
+# at the version hive-router uses.
+ntex = { version = "=3.12.3", features = ["tokio"] }

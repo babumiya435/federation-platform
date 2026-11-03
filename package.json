@@ -9,6 +9,6 @@
   },
   "scripts": {
     "check": "pnpm -r --if-present run check",
-    "graph:update": "pnpm --filter \"./subgraphs/*\" --filter \"!@federation-platform/node\" --if-present run schema:generate && pnpm --filter @federation-platform/node run sync"
+    "graph:update": "pnpm --filter \"./subgraphs/*\" --filter \"!@federation-platform/node\" --if-present run schema:generate && pnpm --filter @federation-platform/node run sync && pnpm --filter @federation-platform/governance run compose"
   }
 }

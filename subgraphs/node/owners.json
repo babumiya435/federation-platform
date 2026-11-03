@@ -1,0 +1,8 @@
+{
+  "Product": [
+    "http://product:4001/graphql"
+  ],
+  "Review": [
+    "http://product:4001/graphql"
+  ]
+}
