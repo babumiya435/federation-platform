@@ -15,5 +15,13 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      # Reads router/rust-toolchain.toml. hive-router's build script runs `npm install`,
+      # which the Node setup above provides.
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ""
+          cache-workspaces: router
       - run: pnpm install --frozen-lockfile
+      # TypeScript checks (tests, generated-file drift, composition) and the router's
+      # fmt, clippy and unit tests: the same command you run locally.
       - run: pnpm check
