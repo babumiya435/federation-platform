@@ -18,17 +18,26 @@ any other subgraph's committed `schema.graphql`. The node subgraph's own
 other subgraphs' schemas, and `pnpm check` fails if it is stale. Nobody edits it.
 
 **Routing.** The generated schema declares every eligible type as a non-resolvable
-stub (`@key(fields: "id", resolvable: false)`). `node(id)`:
+stub (`@key(fields: "id", resolvable: false)`). A second generated artifact,
+`owners.json`, maps each type to the URL(s) of the subgraphs that declare a resolvable
+`@key(fields: "id")` on it. `node(id)`:
 
 1. decodes the id (ADR 0002); malformed ids return `null`;
 2. returns `null` if the decoded type name is not a possible type of `Node` in its
-   own schema;
-3. otherwise returns the stub `{ __typename, id }`.
+   own schema (no owner is called);
+3. asks each owner whether it has the entity (`_entities` for `{ __typename, id }`;
+   owners answer `null` for ids they do not know) and returns `null` if none does;
+4. otherwise returns the stub `{ __typename, id }`, and the router fetches the
+   selected fields from the owner(s) as it would for any entity.
 
-The router then resolves the entity from whichever subgraph has a resolvable
-`@key(fields: "id")`. The node subgraph never loads data and never needs to know
-which subgraph owns what. A well-formed id for a missing entity makes the owner
-return `null` from `_entities`, so the client sees `node: null`.
+The owner check is there because of how the router plans queries: for
+`node(id) { __typename id }` every selected field is provided by the node subgraph, so
+the router would never ask the owner and a well-formed id for a missing product would
+come back as a stub. We tried marking the stub's `id` `@external` to force an owner
+fetch; composition rejects it as unsatisfiable. If an owner is down, is slow (2s
+timeout) or errors, `node` returns a GraphQL error (`NODE_OWNER_UNAVAILABLE`, safe
+message, detail in the server log) rather than `null`, so an outage is not reported as
+"no such entity". The request id header is forwarded to the owner.
 
 **Rejection (rules checked before anything is generated).**
 
@@ -51,5 +60,11 @@ and the subgraph. Fixtures under `subgraphs/node/fixtures/` prove each rule fire
   to reject conflicting field definitions.
 - The generated artifact adds churn to PRs that add Node types, which is deliberate:
   reviewers see exactly which types became reachable through `node(id)`.
+- Cost: one extra owner round-trip per `node(id)` call, before the router's own fetch.
+  Fine at this scale; a production system might cache positive answers briefly or push
+  the existence check into the router.
+- The node subgraph calls owners directly, bypassing the router's auth. That is safe
+  only because the check returns nothing but `__typename`; owners must not add
+  sensitive data to that response.
 - Discovery reads committed schema files, not running services, so it works offline
   and in CI.

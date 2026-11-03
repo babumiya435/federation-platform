@@ -25,6 +25,8 @@ export interface NodeViolation {
 export interface DiscoveryResult {
   /** Sorted names of every eligible type. Only trustworthy when `violations` is empty. */
   typeNames: string[];
+  /** Type name -> sorted subgraphs that can resolve it by id (resolvable `@key(fields: "id")`). */
+  owners: Record<string, string[]>;
   violations: NodeViolation[];
 }
 
@@ -153,11 +155,13 @@ export function discoverNodeTypes(sources: readonly SubgraphSource[]): Discovery
   }
 
   const typeNames: string[] = [];
+  const owners: Record<string, string[]> = {};
   for (const [typeName, usage] of usageByType) {
     if (usage.implementedIn.size === 0) {
       continue;
     }
     typeNames.push(typeName);
+    owners[typeName] = [...usage.resolvableIdKeyIn].sort();
     if (usage.resolvableIdKeyIn.size === 0) {
       const [subgraph] = [...usage.implementedIn];
       violations.push({
@@ -172,7 +176,9 @@ export function discoverNodeTypes(sources: readonly SubgraphSource[]): Discovery
     }
   }
 
-  return { typeNames: typeNames.sort(), violations };
+  typeNames.sort();
+  const sortedOwners = Object.fromEntries(typeNames.map((typeName) => [typeName, owners[typeName] ?? []]));
+  return { typeNames, owners: sortedOwners, violations };
 }
 
 export function formatViolations(violations: readonly NodeViolation[]): string {

@@ -22,6 +22,8 @@ describe("discoverNodeTypes", () => {
     const result = discoverNodeTypes(loadFixture("valid"));
     expect(result.violations).toEqual([]);
     expect(result.typeNames).toEqual(["Gadget", "Widget"]);
+    // Widget is contributed to by two subgraphs, so both can answer for it.
+    expect(result.owners).toEqual({ Gadget: ["gadgets"], Widget: ["gadgets", "products"] });
   });
 
   it("finds Product and Review in the real subgraphs", () => {

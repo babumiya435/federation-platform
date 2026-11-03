@@ -4,7 +4,9 @@ import { discoverNodeTypes, formatViolations, type SubgraphSource } from "./disc
 import { renderNodeSubgraphSchema } from "./render.js";
 
 const subgraphsDir = fileURLToPath(new URL("../../", import.meta.url));
-const target = fileURLToPath(new URL("../schema.graphql", import.meta.url));
+const registryPath = fileURLToPath(new URL("../../../governance/subgraphs.json", import.meta.url));
+const schemaTarget = fileURLToPath(new URL("../schema.graphql", import.meta.url));
+const ownersTarget = fileURLToPath(new URL("../owners.json", import.meta.url));
 
 function loadOtherSubgraphs(): SubgraphSource[] {
   return readdirSync(subgraphsDir, { withFileTypes: true })
@@ -20,30 +22,51 @@ function loadOtherSubgraphs(): SubgraphSource[] {
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
-const { typeNames, violations } = discoverNodeTypes(loadOtherSubgraphs());
-
-if (violations.length > 0) {
-  console.error(`Node rules violated (see docs/decisions/0004-node-subgraph.md):\n${formatViolations(violations)}`);
+function fail(message: string): never {
+  console.error(message);
   process.exit(1);
 }
 
-const generated = renderNodeSubgraphSchema(typeNames);
+const { typeNames, owners, violations } = discoverNodeTypes(loadOtherSubgraphs());
+
+if (violations.length > 0) {
+  fail(`Node rules violated (see docs/decisions/0004-node-subgraph.md):\n${formatViolations(violations)}`);
+}
+
+// Owners are written as URLs so the running node subgraph needs no other config.
+const registry = JSON.parse(readFileSync(registryPath, "utf8")) as { name: string; url: string }[];
+const urlBySubgraph = new Map(registry.map((entry) => [entry.name, entry.url]));
+const ownerUrls: Record<string, string[]> = {};
+for (const [typeName, subgraphs] of Object.entries(owners)) {
+  ownerUrls[typeName] = subgraphs.map((subgraph) => {
+    const url = urlBySubgraph.get(subgraph);
+    if (!url) {
+      fail(`Subgraph "${subgraph}" owns Node type ${typeName} but is missing from governance/subgraphs.json.`);
+    }
+    return url;
+  });
+}
+
+const generatedSchema = renderNodeSubgraphSchema(typeNames);
+const generatedOwners = JSON.stringify(ownerUrls, null, 2) + "\n";
+
+function readOrEmpty(path: string): string {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return "";
+  }
+}
 
 if (process.argv.includes("--check")) {
-  let committed = "";
-  try {
-    committed = readFileSync(target, "utf8");
-  } catch {
-    // treated as stale below
-  }
-  if (committed !== generated) {
-    console.error(
-      "subgraphs/node/schema.graphql is out of date with the other subgraphs.\nRun `pnpm graph:update` and commit the result.",
+  if (readOrEmpty(schemaTarget) !== generatedSchema || readOrEmpty(ownersTarget) !== generatedOwners) {
+    fail(
+      "subgraphs/node/schema.graphql or owners.json is out of date with the other subgraphs.\nRun `pnpm graph:update` and commit the result.",
     );
-    process.exit(1);
   }
-  console.log(`node schema.graphql is up to date (${typeNames.join(", ") || "no types"})`);
+  console.log(`node schema.graphql and owners.json are up to date (${typeNames.join(", ") || "no types"})`);
 } else {
-  writeFileSync(target, generated);
-  console.log(`wrote ${target} with Node types: ${typeNames.join(", ") || "none"}`);
+  writeFileSync(schemaTarget, generatedSchema);
+  writeFileSync(ownersTarget, generatedOwners);
+  console.log(`wrote node schema.graphql and owners.json for: ${typeNames.join(", ") || "none"}`);
 }
