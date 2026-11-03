@@ -94,6 +94,7 @@ jobs:
       - run: docker compose up -d --no-build --wait
       - run: node scripts/smoke.mjs
       - run: node scripts/request-id-check.mjs
+      - run: node scripts/boundary-check.mjs
       - run: node scripts/rate-limit-cases.mjs
       - run: node scripts/rate-limit-reload.mjs
       - if: failure()
