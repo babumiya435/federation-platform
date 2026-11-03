@@ -24,6 +24,12 @@ export function encodeGlobalId(typeName: string, localId: string): string {
   return Buffer.from(`${typeName}:${localId}`, "utf8").toString("base64url");
 }
 
+/** The local part of `id` if it is a global id of type `typeName`, otherwise null. */
+export function localIdFor(typeName: string, id: string): string | null {
+  const decoded = decodeGlobalId(id);
+  return decoded?.typeName === typeName ? decoded.localId : null;
+}
+
 /** Returns null for anything that is not a well-formed global id. */
 export function decodeGlobalId(id: string): DecodedGlobalId | null {
   if (!/^[A-Za-z0-9_-]+$/.test(id)) {
