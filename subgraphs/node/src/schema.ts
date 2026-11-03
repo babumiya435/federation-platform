@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { buildSubgraphSchema } from "@apollo/subgraph";
 import { decodeGlobalId } from "@federation-platform/global-id";
+import { entityExists } from "@federation-platform/owner-check";
 import { GraphQLError, parse, type GraphQLInterfaceType, type GraphQLResolveInfo } from "graphql";
 
 const generatedSchemaPath = fileURLToPath(new URL("../schema.graphql", import.meta.url));
@@ -20,48 +21,6 @@ export interface NodeSchemaOptions {
   owners?: OwnerMap;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
-}
-
-const EXISTS_QUERY = `query NodeExists($representations: [_Any!]!) {
-  _entities(representations: $representations) { __typename }
-}`;
-
-/**
- * Asks one owner whether it has the entity. A subgraph answers `null` from
- * `_entities` for an id it does not know. Anything else (HTTP error, GraphQL error,
- * timeout) throws: reporting "not found" for an owner that is down would be a lie.
- */
-async function ownerHasEntity(
-  ownerUrl: string,
-  typeName: string,
-  id: string,
-  context: NodeContext,
-  fetchImpl: typeof fetch,
-  timeoutMs: number,
-): Promise<boolean> {
-  const response = await fetchImpl(ownerUrl, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(context.requestId ? { "x-request-id": context.requestId } : {}),
-    },
-    body: JSON.stringify({
-      query: EXISTS_QUERY,
-      variables: { representations: [{ __typename: typeName, id }] },
-    }),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!response.ok) {
-    throw new Error(`Owner of ${typeName} (${ownerUrl}) answered HTTP ${response.status}`);
-  }
-  const body = (await response.json()) as {
-    data?: { _entities?: (unknown | null)[] };
-    errors?: { message: string }[];
-  };
-  if (body.errors?.length) {
-    throw new Error(`Owner of ${typeName} (${ownerUrl}) failed: ${body.errors[0]?.message}`);
-  }
-  return Boolean(body.data?._entities?.[0]);
 }
 
 /**
@@ -103,7 +62,14 @@ export function buildNodeSchema(options: NodeSchemaOptions = {}) {
           try {
             answers = await Promise.all(
               ownerUrls.map((ownerUrl) =>
-                ownerHasEntity(ownerUrl, decoded.typeName, args.id, nodeContext, fetchImpl, timeoutMs),
+                entityExists({
+                  ownerUrl,
+                  typeName: decoded.typeName,
+                  id: args.id,
+                  requestId: nodeContext.requestId,
+                  fetchImpl,
+                  timeoutMs,
+                }),
               ),
             );
           } catch (error) {

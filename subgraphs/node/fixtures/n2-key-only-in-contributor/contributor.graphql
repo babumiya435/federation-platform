@@ -1,0 +1,4 @@
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
+
+# Can resolve any id, but does not implement Node, so it does not count as an owner.
+type Gadget @key(fields: "id") { id: ID! weight: Int! }

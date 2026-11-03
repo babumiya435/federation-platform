@@ -1,0 +1,4 @@
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
+
+# Adds a field to Widget but does not own it: no `implements Node`.
+type Widget @key(fields: "id") { id: ID! reviews: [String!]! }

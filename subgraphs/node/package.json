@@ -14,6 +14,7 @@
   "dependencies": {
     "@apollo/subgraph": "2.13.3",
     "@federation-platform/global-id": "workspace:*",
+    "@federation-platform/owner-check": "workspace:^",
     "graphql": "^16",
     "graphql-yoga": "^6.0.1"
   },

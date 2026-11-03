@@ -37,7 +37,10 @@ type ObjectDefinition = ObjectTypeDefinitionNode | ObjectTypeExtensionNode;
 interface TypeUsage {
   /** Subgraphs where the type declares `implements Node`. */
   implementedIn: Set<string>;
-  /** Subgraphs where the type has a resolvable `@key(fields: "id")`. */
+  /**
+   * Subgraphs where the type has a resolvable `@key(fields: "id")`. This includes subgraphs
+   * that only contribute fields to the type; those are not owners (see `owners` below).
+   */
   resolvableIdKeyIn: Set<string>;
 }
 
@@ -161,17 +164,20 @@ export function discoverNodeTypes(sources: readonly SubgraphSource[]): Discovery
       continue;
     }
     typeNames.push(typeName);
-    owners[typeName] = [...usage.resolvableIdKeyIn].sort();
-    if (usage.resolvableIdKeyIn.size === 0) {
+    // An owner declares `implements Node` AND can resolve the type by id. A subgraph that merely
+    // extends the type with extra fields can resolve any id (it only needs the id to add its
+    // fields), so asking it "does this exist?" would always say yes.
+    owners[typeName] = [...usage.implementedIn].filter((subgraph) => usage.resolvableIdKeyIn.has(subgraph)).sort();
+    if (owners[typeName]?.length === 0) {
       const [subgraph] = [...usage.implementedIn];
       violations.push({
         rule: "N2",
         subgraph: subgraph ?? "unknown",
         typeName,
         message:
-          `Type "${typeName}" implements Node (subgraph "${subgraph}") but no subgraph declares a resolvable ` +
-          `@key(fields: "id") on it, so the router cannot resolve node(id) for it. ` +
-          `Add @key(fields: "id") to the type in the subgraph that owns it.`,
+          `Type "${typeName}" implements Node (subgraph "${subgraph}") but no subgraph that declares ` +
+          `\`implements Node\` on it also declares a resolvable @key(fields: "id"), so the router cannot resolve ` +
+          `node(id) for it. Add @key(fields: "id") to the type in the subgraph that owns it.`,
       });
     }
   }
