@@ -5,10 +5,15 @@
   "type": "module",
   "scripts": {
     "compose": "tsx src/compose.ts",
-    "compose:check": "tsx src/compose.ts --check",
+    "check:composition": "tsx src/compose.ts --check",
+    "check:operations": "tsx src/cli/operations.ts",
+    "check:breaking": "tsx src/cli/breaking.ts",
+    "check:policy": "tsx src/cli/policy.ts",
+    "check:decisions": "tsx src/cli/decisions.ts",
+    "check:all": "tsx src/cli/all.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm test && pnpm compose:check"
+    "check": "pnpm typecheck && pnpm test && pnpm check:all"
   },
   "dependencies": {
     "@theguild/federation-composition": "^0.27.0",
