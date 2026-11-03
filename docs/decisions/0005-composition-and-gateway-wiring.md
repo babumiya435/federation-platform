@@ -53,6 +53,20 @@ A denied request returns HTTP 403 with `UNAUTHORIZED_FIELD_OR_TYPE` and `data: n
 (`reject` mode, ADR 0003). An invalid token does not by itself cause a 401, because
 `require_authentication` is false; it just never grants anything.
 
+**Request id.** The brief asks for a request id forwarded from the router to each
+subgraph. The router decides a request's id before plugins run (the client's
+`x-request-id` if it is short and made of safe characters, otherwise a generated one)
+and logs it. Header rules alone cannot forward a *generated* id: nothing in the router's
+header rules or VRL context exposes it. So the `request_id` plugin reads the router's id
+from the router's own request scope and writes it back into the request's
+`x-request-id` header, and `headers.all.request` propagates that header to every
+subgraph. The id in the router log is then the id every subgraph receives, including
+when the client sent none or an unusable one. The first attempt generated a second id in
+the plugin and the two differed; `scripts/request-id-check.mjs` caught that. Subgraphs
+log one JSON line per GraphQL call with the id they received, and the node subgraph
+passes it on to the owner it asks. Nothing beyond forwarding the id is attempted
+(no tracing, no metrics).
+
 ## Dev keys are committed on purpose
 
 The private key (`auth/dev-private-key.jwk.json`) is in the repo so the stack and CI

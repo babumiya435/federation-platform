@@ -55,9 +55,18 @@ Anonymous calls work too; protected fields refuse them. Checks against a running
 
 ```sh
 node scripts/smoke.mjs                # auth, node(id), tokens
+node scripts/request-id-check.mjs     # the router's request id reaches the subgraphs
 node scripts/rate-limit-cases.mjs     # @rateLimit behaviour, ~40s because it waits out windows
 node scripts/rate-limit-reload.mjs    # change a limit in the supergraph, no restart
 ```
+
+CI builds the images and runs exactly these (job `stack`). A separate job,
+`add-node-type`, runs `node e2e/add-node-type/run.mjs`: it adds a throwaway subgraph that
+owns a new Node type, runs `pnpm graph:update`, starts the stack with it and resolves the
+new type through the router's `node(id)`. The node subgraph is never edited by hand:
+the script asserts that only its two generated files changed. It also shows that a Node
+type nobody can resolve is rejected by the same workflow. It puts every file back
+afterwards and needs a clean working tree.
 
 ## Rate limits
 
@@ -107,7 +116,7 @@ job so it shows up as its own status.
 Checks only block a merge if GitHub is told to require them. For `main`, in Settings ->
 Branches (or a ruleset): require a pull request with an approving review; require these
 status checks: `check`, `composition`, `node-rules`, `operations`, `breaking-changes`,
-`policy`, `decisions`; require branches to be up to date before merging (so
+`policy`, `decisions`, `stack`, `add-node-type`; require branches to be up to date before merging (so
 `breaking-changes` always compares against the current `main`); block force pushes and
 deletions, and include administrators. Details and reasons are in ADR 0007.
 
