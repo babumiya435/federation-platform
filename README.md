@@ -54,6 +54,9 @@ pnpm governance       # just the schema governance checks, each reported separat
 pnpm graph:update     # regenerate derived files after changing a subgraph schema
 ```
 
+A step-by-step walkthrough that maps every requirement to a command and its expected
+result is in [docs/verify.md](docs/verify.md).
+
 Scripts that talk to a running stack (`ROUTER_URL` overrides the address):
 
 ```sh
