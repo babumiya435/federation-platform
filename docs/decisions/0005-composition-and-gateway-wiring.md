@@ -26,12 +26,21 @@ out.
 the committed supergraph is correct for `docker compose up` and for CI.
 
 **How an updated supergraph becomes active.** The router runs with
-`supergraph.source: file` and `poll_interval: 5s`. The file is bind-mounted, so
-recomposing and saving it is picked up on the next poll with no restart and no change
-to the router's source. Verified by editing the mounted file: the router logged
-"supergraph loaded successfully with changes" within one poll interval, and again when
-the file was restored. (Behaviour under a bad file is covered with the rate-limit
-tests.)
+`supergraph.source: file` and `poll_interval: 5s`; it decides whether to reload from the
+file's modified-time. The `supergraph/` **folder** is bind-mounted read-only, so
+recomposing and saving the file is picked up on the next poll with no restart and no
+change to the router's source. Verified by editing the file: the router logged
+"supergraph loaded successfully with changes" within one poll interval, and again when the
+file was restored. (Behaviour under a bad file is covered with the rate-limit tests.)
+
+Why a folder and not the single file: found while validating by hand. With the single file
+mounted, replacing it (as `git checkout`, most editors and atomic deploys do, as opposed to
+rewriting it in place) left the container showing the new content with the *old*
+modified-time on Docker Desktop for Mac, so the router never reloaded and kept serving a
+schema nobody intended. Mounting the folder fixes that; `rate-limit-reload.mjs` now covers
+both an in-place rewrite and a replaced file. The JWKS stays a single-file mount because
+`auth/` also holds the dev private key, which has no business inside the router container;
+it is read once at startup, so a stale view cannot matter there.
 
 **JWT.** ES256, keys from a committed JWKS file (`auth/dev-jwks.json`).
 `require_authentication: false` lets anonymous requests in; protected fields refuse
