@@ -37,6 +37,15 @@ identity, contain no co-author trailer, and were made by the agent at my directi
    reviews follow the same format.
 2. Generated code used one-letter callback parameters (`p`, `r`, `t`, `e`, `ctx`). I asked
    for descriptive names across the codebase (PR #1) and the agent renamed them.
+3. Running the stack by hand, I found that after restoring the supergraph with `git checkout`
+   the router kept serving the *old, renamed* schema: queries failed with `Cannot query field
+   "name" on type "Product"` and never recovered. The automated checks had not caught it.
+   The agent's first explanation (a stale file copy in the container) was wrong. The real
+   cause: the single-file Docker bind mount showed the container the restored content with
+   the old modified-time on Docker Desktop for Mac, and the router decides whether to reload
+   from the modified-time. The fix mounts the `supergraph/` folder instead, and
+   `scripts/rate-limit-reload.mjs` now also covers a replaced file (ADR 0005, branch
+   `fix/supergraph-reload`).
 
 ## How the output was validated
 
@@ -45,8 +54,12 @@ product, 32 governance, 23 Rust), a failing fixture for every governance and Nod
 and scripts against the real stack (smoke, rate-limit cases, limit reload without restart,
 request-id forwarding, the add-a-Node-type scenario). All nine CI jobs passed on GitHub.
 
-Running the real stack found defects in the agent's own work, which the agent then fixed.
-These were found by testing, not by review:
+My own manual run-through of every requirement ([docs/verify.md](docs/verify.md)) found one defect
+that CI had missed: the supergraph reload described in correction 3. The reload script only
+ever rewrote the file in place, which works; replacing the file was the untested case.
+
+Running the real stack also found defects in the agent's own work, which the agent then
+fixed. These were found by testing, not by review:
 
 - `node(id)` returned a stub for a well-formed id of a missing product, because the router
   never asks the owner when only `__typename id` is selected. The node subgraph now checks
