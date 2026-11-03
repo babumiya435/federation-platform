@@ -2,7 +2,7 @@
 
 supergraph:
   source: file
-  path: /app/supergraph.graphql
+  path: /app/supergraph/supergraph.graphql
   # Re-read the file when it changes, so a recomposed supergraph goes live without a restart.
   poll_interval: 5s
 
