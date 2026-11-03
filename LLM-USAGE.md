@@ -12,9 +12,9 @@ than a plan. Categories: **by hand**, **assisted**, **fully generated**.
 | Node subgraph   | fully generated | Discovery rules, generator, resolver, fixtures, tests, ADR 0004. Prompted, human review pending. |
 | Global-id lib   | fully generated | `packages/global-id` with tests. Prompted, human review pending. |
 | Product subgraph| fully generated | Pothos + Yoga subgraph, seed data, tests, generated `schema.graphql`. Prompted, human review pending. |
-| Governance      | partial         | Composition script and tests generated; lint, breaking-change and decision checks not started. Prompted, human review pending. |
-| CI              | partial         | Workflow runs `pnpm check` incl. Rust fmt/clippy/tests (generated). Router image build and the integration scripts are not in CI yet. |
-| Docs            | in progress     | ADRs 0001-0006 and README drafted by the agent; I need to confirm each decision before the call. |
+| Governance      | fully generated | Composition, operation and breaking-change checks, policy lint, decision checks, fixtures, tests, client operations and ADR 0007. Prompted, human review pending. |
+| CI              | partial         | Workflow runs `pnpm check` (incl. Rust fmt/clippy/tests) and one job per governance check (generated). Router image build, the integration scripts and the add-a-Node-type job are not in CI yet. |
+| Docs            | in progress     | ADRs 0001-0007 and README drafted by the agent; I need to confirm each decision before the call. |
 
 ## Corrections made to generated work
 
