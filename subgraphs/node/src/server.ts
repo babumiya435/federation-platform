@@ -9,6 +9,12 @@ const yoga = createYoga<object, NodeContext>({
 });
 const port = Number(process.env.PORT ?? 4002);
 
-createServer(yoga).listen(port, () => {
+createServer((request, response) => {
+  // One line per GraphQL call, carrying the id the router forwards (docs/decisions/0005).
+  if (request.method === "POST") {
+    console.log(JSON.stringify({ service: "node", request_id: request.headers["x-request-id"] ?? null }));
+  }
+  return yoga(request, response);
+}).listen(port, () => {
   console.log(`node subgraph listening on :${port}/graphql`);
 });
