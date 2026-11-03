@@ -97,7 +97,8 @@ A failing check only blocks a merge if GitHub is told to require it. For `main`:
 1. Require a pull request before merging (at least one approving review; dismiss stale
    approvals when new commits are pushed).
 2. Require status checks to pass, and select **these jobs**: `check`, `composition`,
-   `node-rules`, `operations`, `breaking-changes`, `policy`, `decisions`.
+   `node-rules`, `operations`, `breaking-changes`, `policy`, `decisions`, `stack`,
+   `add-node-type`.
 3. Require branches to be up to date before merging. `breaking-changes` compares
    against the target branch, so a PR that was green against an older `main` must be
    re-checked against the current one.

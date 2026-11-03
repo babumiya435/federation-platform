@@ -1,0 +1,14 @@
+name: Build the stack images
+description: Builds every docker-compose service image with a shared layer cache (the router is a Rust build) and loads them into the local Docker daemon
+
+runs:
+  using: composite
+  steps:
+    - uses: docker/setup-buildx-action@v3
+    - uses: docker/bake-action@v6
+      with:
+        files: docker-compose.yml
+        load: true
+        set: |
+          *.cache-from=type=gha,scope=stack
+          *.cache-to=type=gha,scope=stack,mode=max

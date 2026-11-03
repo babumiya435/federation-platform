@@ -2,6 +2,7 @@
 #![recursion_limit = "256"]
 
 mod rate_limit;
+mod request_id;
 
 use hive_router::{
     configure_global_allocator, error::RouterInitError, init_rustls_crypto_provider,
@@ -14,5 +15,10 @@ configure_global_allocator!();
 async fn main() -> Result<(), RouterInitError> {
     init_rustls_crypto_provider();
 
-    router_entrypoint(PluginRegistry::new().register::<rate_limit::RateLimitPlugin>()).await
+    router_entrypoint(
+        PluginRegistry::new()
+            .register::<request_id::RequestIdPlugin>()
+            .register::<rate_limit::RateLimitPlugin>(),
+    )
+    .await
 }

@@ -6,6 +6,13 @@ supergraph:
   # Re-read the file when it changes, so a recomposed supergraph goes live without a restart.
   poll_interval: 5s
 
+# Forward the request id to every subgraph. The request_id plugin guarantees one exists.
+headers:
+  all:
+    request:
+      - propagate:
+          named: x-request-id
+
 jwt:
   enabled: true
   # Anonymous requests are allowed in; protected fields refuse them (ADR 0003).
@@ -22,6 +29,9 @@ authorization:
       mode: reject
 
 plugins:
+  request_id:
+    enabled: true
+    warn_on_error: false
   rate_limit:
     enabled: true
     # A plugin that fails to start must stop the router: running without it would
