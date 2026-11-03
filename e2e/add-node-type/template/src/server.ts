@@ -12,16 +12,24 @@ const gadgets = new Map([
   ["flange", "Flange"],
 ]);
 
+function gadgetFor(id: string) {
+  const decoded = decodeGlobalId(id);
+  const name = decoded?.typeName === "Gadget" ? gadgets.get(decoded.localId) : undefined;
+  return name ? { id, name } : null;
+}
+
 const schema = buildSubgraphSchema({
   typeDefs: parse(readFileSync(fileURLToPath(new URL("../schema.graphql", import.meta.url)), "utf8")),
   resolvers: {
     Query: { gadgetCount: () => gadgets.size },
-    Gadget: {
+    Gadget: { __resolveReference: (reference: { id: string }) => gadgetFor(reference.id) },
+    // The entity interface: a bare Node id resolves to a Gadget if it is one of ours, else null.
+    Node: {
       __resolveReference: (reference: { id: string }) => {
-        const decoded = decodeGlobalId(reference.id);
-        const name = decoded?.typeName === "Gadget" ? gadgets.get(decoded.localId) : undefined;
-        return name ? { id: reference.id, name } : null;
+        const gadget = gadgetFor(reference.id);
+        return gadget ? { __typename: "Gadget", ...gadget } : null;
       },
+      __resolveType: (entity: { __typename: string }) => entity.__typename,
     },
   },
 });

@@ -1,14 +1,13 @@
 #!/usr/bin/env node
-// End to end: add a new Node type in a different subgraph, run the update workflow,
-// and resolve an instance of it through the real router's node(id), with nobody editing
-// the node subgraph by hand. Also shows that a declaration breaking the Node rules is
-// rejected by the same workflow.
+// End to end: add a new Node type in a different subgraph and resolve an instance of it through
+// the real router's node(id), with NOTHING in the node subgraph changing: not a hand edit and not
+// a regenerated file. Also shows that a declaration breaking the Node rules is rejected.
 //
 //   node e2e/add-node-type/run.mjs            (ROUTER_PORT=4100 if 4000 is taken)
 //
 // It adds a throwaway `gadgets` subgraph (from ./template), and puts everything back
-// afterwards, including on failure: files from git, and the node image rebuilt without Gadget.
-// It refuses to start if tracked files are modified, because it restores them with `git checkout`.
+// afterwards, including on failure. It refuses to start if tracked files are modified, because it
+// restores them with `git checkout`.
 import { spawnSync } from "node:child_process";
 import { cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -20,14 +19,9 @@ const gadgetsDir = `${repoRoot}subgraphs/gadgets`;
 const registryPath = `${repoRoot}governance/subgraphs.json`;
 const COMPOSE = ["-f", "docker-compose.yml", "-f", "e2e/add-node-type/compose.gadgets.yml"];
 
-// Files the update workflow rewrites; restored from git at the end.
-const TOUCHED = [
-  "governance/subgraphs.json",
-  "subgraphs/node/schema.graphql",
-  "subgraphs/node/owners.json",
-  "supergraph/supergraph.graphql",
-  "pnpm-lock.yaml",
-];
+// Files the update workflow rewrites; restored from git at the end. The node subgraph is not
+// among them: it never changes.
+const TOUCHED = ["governance/subgraphs.json", "supergraph/supergraph.graphql", "pnpm-lock.yaml"];
 
 function run(command, args, { capture = false } = {}) {
   const result = spawnSync(command, args, {
@@ -58,57 +52,49 @@ if (run("git", ["status", "--porcelain", "--untracked-files=no"], { capture: tru
   console.error("Tracked files are modified. Commit or stash them first: this script restores files with `git checkout`.");
   process.exit(2);
 }
-if (readFileSync(`${repoRoot}subgraphs/node/schema.graphql`, "utf8").includes("Gadget")) {
-  console.error("The node subgraph already mentions Gadget; nothing to demonstrate.");
+if (readFileSync(`${repoRoot}supergraph/supergraph.graphql`, "utf8").includes("Gadget")) {
+  console.error("The supergraph already mentions Gadget; nothing to demonstrate.");
   process.exit(2);
 }
 
 try {
-  // 1. a declaration that breaks the Node rules is rejected by the update workflow
-  console.log("\n# a Node type with no resolvable @key(fields: \"id\") is rejected");
-  addGadgetsSubgraph((sdl) => sdl.replace(' @key(fields: "id")', ""));
-  const rejected = run("pnpm", ["graph:update"], { capture: true });
-  expect("graph:update fails for a Node type nobody can resolve", rejected.status !== 0, rejected.output.slice(-400));
+  // 1. a declaration that breaks the Node rules is rejected before it can land
+  console.log("\n# a Node type whose subgraph does not declare the entity interface is rejected");
+  addGadgetsSubgraph((sdl) => sdl.replace('interface Node @key(fields: "id")', "interface Node"));
+  const rejected = run("pnpm", ["--filter", "@federation-platform/governance", "run", "check:node-rules"], { capture: true });
+  expect("the node-rules check fails", rejected.status !== 0, rejected.output.slice(-400));
   expect(
-    "and says which rule, which type and how to fix it",
-    /\[N2\]/.test(rejected.output) && rejected.output.includes('"Gadget"') && rejected.output.includes('@key(fields: "id")'),
+    "and says which rule, which subgraph and how to fix it",
+    rejected.output.includes("[node/entity-interface]") &&
+      rejected.output.includes("gadgets") &&
+      rejected.output.includes('interface Node @key(fields: "id")'),
     rejected.output.slice(-600),
   );
   restoreRepository();
 
-  // 2. a valid new Node type flows through with no hand edits to the node subgraph
+  // 2. a valid new Node type needs no change anywhere in the node subgraph
   console.log("\n# a valid new Node type, added in another subgraph");
   addGadgetsSubgraph();
   const installed = run("pnpm", ["install", "--no-frozen-lockfile"], { capture: true });
   expect("the new subgraph installs into the workspace", installed.status === 0, installed.output.slice(-400));
   const updated = run("pnpm", ["graph:update"], { capture: true });
-  expect("graph:update succeeds", updated.status === 0, updated.output.slice(-600));
+  expect("graph:update (composition) succeeds", updated.status === 0, updated.output.slice(-600));
+  const nodeRules = run("pnpm", ["--filter", "@federation-platform/governance", "run", "check:node-rules"], { capture: true });
+  expect("the node-rules check accepts it", nodeRules.status === 0, nodeRules.output.slice(-400));
 
-  const changedInNode = run("git", ["diff", "--name-only", "--", "subgraphs/node"], { capture: true })
-    .output.trim()
-    .split("\n")
-    .filter(Boolean)
-    .sort();
-  expect(
-    "only generated files changed in the node subgraph",
-    JSON.stringify(changedInNode) === JSON.stringify(["subgraphs/node/owners.json", "subgraphs/node/schema.graphql"]),
-    changedInNode,
-  );
-  expect(
-    "the node subgraph schema now declares Gadget and the supergraph contains it",
-    readFileSync(`${repoRoot}subgraphs/node/schema.graphql`, "utf8").includes("type Gadget implements Node") &&
-      readFileSync(`${repoRoot}supergraph/supergraph.graphql`, "utf8").includes("type Gadget"),
-    null,
-  );
+  const changedInNode = run("git", ["status", "--porcelain", "--untracked-files=all", "--", "subgraphs/node"], { capture: true }).output.trim();
+  expect("nothing under subgraphs/node changed: no hand edit and no regenerated file", changedInNode === "", changedInNode);
+  expect("the supergraph now contains Gadget", readFileSync(`${repoRoot}supergraph/supergraph.graphql`, "utf8").includes("type Gadget"), null);
 
   // 3. resolve it through the real router
   console.log("\n# through the router");
-  for (const service of ["router", "product"]) {
+  for (const service of ["router", "product", "reviews", "node"]) {
     if (run("docker", ["image", "inspect", `federation-platform/${service}:local`], { capture: true }).status !== 0) {
       run("docker", ["compose", "build", service]);
     }
   }
-  const built = run("docker", ["compose", ...COMPOSE, "build", "node", "gadgets"]);
+  // Only the new subgraph is built: the node subgraph's image is exactly the one already running.
+  const built = run("docker", ["compose", ...COMPOSE, "build", "gadgets"]);
   const started = run("docker", ["compose", ...COMPOSE, "up", "-d", "--no-build", "--wait"]);
   expect("the stack with the new subgraph starts and becomes healthy", built.status === 0 && started.status === 0, null);
 
@@ -127,17 +113,8 @@ try {
   restoreRepository();
   run("pnpm", ["install", "--frozen-lockfile"], { capture: true });
 
-  // The node image built above knows about Gadget. Restoring the files does not touch images,
-  // so a later `docker compose up` would serve a node subgraph that asks a gadgets owner that
-  // no longer exists. Rebuild it from the restored files and drop the throwaway image.
-  run("docker", ["compose", "build", "node"], { capture: true });
+  // The throwaway subgraph's image has no business staying around.
   run("docker", ["image", "rm", "-f", "federation-platform/gadgets:local"], { capture: true });
-  const leftover = run(
-    "docker",
-    ["run", "--rm", "federation-platform/node:local", "sh", "-c", "grep -c Gadget /repo/subgraphs/node/schema.graphql || true"],
-    { capture: true },
-  );
-  expect("the node image was rebuilt without Gadget, so the stack is back to normal", leftover.output.trim().endsWith("0"), leftover.output.trim());
 }
 
 finish("add-node-type scenario passed");

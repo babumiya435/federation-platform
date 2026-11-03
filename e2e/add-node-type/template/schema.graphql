@@ -1,6 +1,8 @@
 extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
 
-interface Node {
+# Declaring a Node type is all it takes: the entity interface says "ask me whether a bare id is
+# mine", and the type says it is a Node keyed by id. Nothing in the node subgraph changes.
+interface Node @key(fields: "id") {
   id: ID!
 }
 
