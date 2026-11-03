@@ -1,6 +1,8 @@
 # 0004 - Node subgraph: discovery, routing, rejection
 
-Status: accepted
+Status: **superseded by [0010](0010-node-interface-object.md)**. Kept for the reasoning that led
+there: the generated-schema design below worked and was tested, but still changed two committed
+files in the node subgraph for every new entity type.
 
 ## Context
 
@@ -19,8 +21,10 @@ other subgraphs' schemas, and `pnpm check` fails if it is stale. Nobody edits it
 
 **Routing.** The generated schema declares every eligible type as a non-resolvable
 stub (`@key(fields: "id", resolvable: false)`). A second generated artifact,
-`owners.json`, maps each type to the URL(s) of the subgraphs that declare a resolvable
-`@key(fields: "id")` on it. `node(id)`:
+`owners.json`, maps each type to the URL(s) of its **owners**: the subgraphs that declare
+`implements Node` on it and also declare a resolvable `@key(fields: "id")`. A subgraph that
+only adds fields to the type (for example `reviews` adding `Product.reviews`) is not an owner:
+it can resolve any id, so asking it whether the entity exists would always say yes (ADR 0009). `node(id)`:
 
 1. decodes the id (ADR 0002); malformed ids return `null`;
 2. returns `null` if the decoded type name is not a possible type of `Node` in its
@@ -44,7 +48,7 @@ message, detail in the server log) rather than `null`, so an outage is not repor
 | Rule | A type that implements `Node` must... |
 |------|---------------------------------------|
 | N1 | be an object type with a field `id: ID!` |
-| N2 | have at least one subgraph declaring a *resolvable* `@key(fields: "id")` on it, otherwise the router cannot resolve it |
+| N2 | have at least one owner: a subgraph that declares `implements Node` on it *and* a resolvable `@key(fields: "id")`, otherwise the router cannot resolve it |
 | N3 | not use a reserved name (`Node`, `Query`, `Mutation`, `Subscription`) |
 | N4 | (interface) every `Node` declaration must be exactly `interface Node { id: ID! }` |
 
@@ -55,9 +59,10 @@ and the subgraph. Fixtures under `subgraphs/node/fixtures/` prove each rule fire
 
 - Adding a Node type is: implement `Node` and key it by `id` in the owning subgraph,
   run `pnpm graph:update`. The node subgraph file changes, by machine.
-- Several subgraphs may contribute fields to one Node type; only N2's "at least one
-  resolvable key" is required, not a single owner. We rely on federation composition
-  to reject conflicting field definitions.
+- Several subgraphs may contribute fields to one Node type. Only subgraphs that declare
+  `implements Node` and a resolvable key are owners (N2 needs at least one); contributors are
+  not asked whether an entity exists. We rely on federation composition to reject conflicting
+  field definitions.
 - The generated artifact adds churn to PRs that add Node types, which is deliberate:
   reviewers see exactly which types became reachable through `node(id)`.
 - Cost: one extra owner round-trip per `node(id)` call, before the router's own fetch.

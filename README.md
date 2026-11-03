@@ -3,14 +3,16 @@
 A small federated GraphQL platform in one repository:
 
 - a **Rust gateway** (Hive Router) with a `@rateLimit` plugin, JWT validation and `@requiresScopes`;
-- a **product subgraph** (TypeScript) with `Product` and `Review` as Relay `Node` entities;
+- **two domain subgraphs** (TypeScript) that own different types and refer to each other:
+  `product` owns `Product`, `reviews` owns `Review`, both as Relay `Node` entities;
 - a **node subgraph** (TypeScript) that owns `Query.node(id)` and keeps working when someone
   adds a Node type elsewhere, with no hand edits;
 - **schema governance** that runs without a human, locally with one command and in CI.
 
 ```
 client ──► router (Hive Router, Rust)       JWT · @requiresScopes · @rateLimit · request id
-            ├──► product subgraph           Product, Review, products, addReview
+            ├──► product subgraph           Product, products
+            ├──► reviews subgraph           Review, addReview, Product.reviews
             └──► node subgraph              Query.node, asks the owning subgraph
 ```
 
@@ -62,6 +64,7 @@ Scripts that talk to a running stack (`ROUTER_URL` overrides the address):
 ```sh
 node scripts/smoke.mjs              # auth, node(id), tokens
 node scripts/request-id-check.mjs   # the router's request id reaches the subgraphs
+node scripts/boundary-check.mjs     # one query crosses the product and reviews subgraphs
 node scripts/rate-limit-cases.mjs   # @rateLimit behaviour (~40s: it waits out windows)
 node scripts/rate-limit-reload.mjs  # change a limit in the supergraph, no restart
 node e2e/add-node-type/run.mjs      # add a Node type elsewhere; see below
@@ -70,9 +73,12 @@ node e2e/add-node-type/run.mjs      # add a Node type elsewhere; see below
 ## Layout
 
 ```
-subgraphs/product   Pothos + Yoga subgraph; schema generated from code, committed
-subgraphs/node      node(id); its schema and owners.json are generated, never edited
+subgraphs/product   owns Product; Pothos + Yoga, schema generated from code, committed
+subgraphs/reviews   owns Review and addReview; extends Product with reviews
+subgraphs/node      Query.node as an interface object: knows no types, never changes
 packages/global-id  the one place ids are encoded and decoded
+packages/owner-check  asks a subgraph whether it has an entity (node and reviews use it)
+packages/rate-limit-directive  how a subgraph declares @rateLimit so it survives composition
 governance/         composition, operation and breaking-change checks, policy, decisions
 clients/operations  client operations the schema checks run against
 router/             Rust crate: Hive Router + rate_limit and request_id plugins
@@ -82,10 +88,17 @@ e2e/                the add-a-Node-type scenario
 docs/               decisions (ADRs), change workflow
 ```
 
-## The four decisions
+## Design decisions
 
-Each is argued in an ADR, consistent with the code and tests, and listed here with the
-main trade-off. All seven ADRs are indexed in [docs/decisions](docs/decisions/README.md).
+The brief states four outcomes and leaves the design to us. Each design below is argued in an
+ADR, consistent with the code and tests, and listed with its main trade-off. The ADRs are
+indexed in [docs/decisions](docs/decisions/README.md).
+
+**Two subgraphs that own different types** ([ADR 0009](docs/decisions/0009-reviews-subgraph.md)).
+`product` owns `Product`; `reviews` owns `Review` and `addReview` and extends `Product` with
+`reviews`. References cross the boundary both ways, using the shared id as the key. `addReview`
+asks the product subgraph whether the product exists. Trade-off: writes depend on the product
+subgraph being up.
 
 **Global ids** ([ADR 0002](docs/decisions/0002-global-ids.md)). `id = base64url("Type:localId")`,
 encoded in one shared package, and the id *is* the federation key (`@key(fields: "id")`).
@@ -94,15 +107,16 @@ one id in client queries, entity representations and `node(id)`, with no mapping
 Trade-off: renaming a GraphQL type changes its ids, and ids are forgeable, so access is
 enforced on fields, never by an id being unguessable.
 
-**Node** ([ADR 0004](docs/decisions/0004-node-subgraph.md)). The node subgraph's schema and an
-`owners.json` are *derived* from the other subgraphs' committed schemas by
-`pnpm graph:update`: any object type that `implements Node` is eligible. `node(id)` decodes
-the id, checks the type is eligible, then **asks the owning subgraph whether the entity
-exists** before returning a stub; the router fetches the real fields. Unknown or
-malformed ids return `null`. Four rules (N1-N4) reject declarations the router could not
-resolve. The existence check exists because we found, by testing, that the router never
-calls the owner for `node(id) { __typename id }`, so a missing product came back as a
-stub. Trade-off: one extra round trip per `node(id)`.
+**Node** ([ADR 0010](docs/decisions/0010-node-interface-object.md), which replaced a generated-schema
+design, [ADR 0004](docs/decisions/0004-node-subgraph.md)). The node subgraph is static: `type Node
+@key(fields: "id") @interfaceObject` and `Query.node`. It knows no types. Each owning subgraph
+declares `interface Node @key(fields: "id")` and resolves a bare id to its concrete entity or
+`null`; the router asks the owners which type an id is. So **adding an entity type, or a whole
+subgraph, changes nothing in the node subgraph**, and CI asserts that. Unknown ids return `null`:
+a spike showed the router otherwise answers with a stub typed `Node`, so `node(id)` first asks the
+owners, which it finds in the live supergraph. Static checks in governance enforce the pattern.
+Trade-off: every owner implements the interface-level resolver, and an existing id costs the
+owner two questions (the probe and the router's own).
 
 **Authorization** ([ADR 0003](docs/decisions/0003-authorization.md)). The router's built-in
 `@requiresScopes`, scopes named `<domain>:<action>:<sensitivity>` (`catalog:read:internal`,
@@ -143,7 +157,7 @@ each as its own job, so a failure names the check that failed.
 | Check | Fails when |
 |-------|-----------|
 | `composition` | the subgraphs do not compose, or `supergraph.graphql` is stale |
-| `node-rules` | a Node type breaks rules N1-N4, or the node subgraph is stale |
+| `node-rules` | the Node pattern is broken: a Node type without `id: ID!` or a resolvable key, a subgraph without the `Node` entity interface, a malformed interface object |
 | `operations` | an operation in `clients/operations` no longer validates against the schema |
 | `breaking-changes` | an operation in `clients/operations` **on the target branch** no longer validates against the proposed schema |
 | `policy` | the API schema breaks a policy rule: mutation result unions, Relay connections, naming |
@@ -190,20 +204,29 @@ whether or not an agent does the typing; agent-specific rules are in [AGENTS.md]
 Adding a Node type in another subgraph needs no edit to the node subgraph. CI proves it
 (job `add-node-type`, `e2e/add-node-type/run.mjs`): it adds a throwaway subgraph that owns a
 new type, runs `pnpm graph:update`, starts the stack and resolves the new type through the
-router's `node(id)`. It asserts that only the node subgraph's two generated files changed,
-shows that a Node type nobody can resolve is rejected by the same workflow, and puts every
-file back afterwards.
+router's `node(id)`. It asserts that **`git status` shows nothing under `subgraphs/node`**, shows
+that a subgraph that does not declare the `Node` entity interface is rejected by the `node-rules`
+check, and puts every file back afterwards.
 
 ## What CI runs
 
 | Job | What it checks |
 |-----|----------------|
-| `check` | everything `pnpm check` runs: TypeScript tests and generated-file drift, composition, governance, and the router's `cargo fmt`, `clippy` and unit tests (94 unit tests in total) |
+| `check` | everything `pnpm check` runs: TypeScript tests and generated-file drift, composition, governance, and the router's `cargo fmt`, `clippy` and unit tests (128 unit tests in total) |
 | `composition`, `node-rules`, `operations`, `breaking-changes`, `policy`, `decisions` | one governance check each |
-| `stack` | builds the images (cached), starts docker compose, runs the four stack scripts |
+| `stack` | builds the images (cached), starts docker compose, runs the five stack scripts |
 | `add-node-type` | the end-to-end scenario above |
 
 All nine passed on the pull request that added them.
+
+### The brief's four outcomes, and where CI proves each
+
+| Outcome | Proven by |
+|---------|-----------|
+| 1. Limits and scopes enforced at the gateway, for signed-in and anonymous callers | job `stack`: `smoke.mjs` (scopes), `rate-limit-cases.mjs` (limits), `rate-limit-reload.mjs` (changing one needs no router change) |
+| 2. Any entity fetchable by id from one place, and a new entity type keeps working | job `add-node-type`; `smoke.mjs` and `boundary-check.mjs` resolve Products and Reviews through `node(id)` |
+| 3. Two or more subgraphs owning different types, with a reference across the boundary | job `stack`: `boundary-check.mjs` asserts from the router's own log that one query called `product`, then `reviews`, then `product` again |
+| 4. Governance without a human | the six governance jobs and `check` |
 
 ## Not done, and known limits
 

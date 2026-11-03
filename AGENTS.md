@@ -1,7 +1,7 @@
 # Instructions for coding agents
 
 A federated GraphQL platform: a Rust router (Hive Router) with a `@rateLimit` plugin, two
-TypeScript subgraphs (`subgraphs/product`, `subgraphs/node`), schema governance
+TypeScript subgraphs (`subgraphs/product` owns Product, `subgraphs/reviews` owns Review, `subgraphs/node` owns `Query.node`), schema governance
 (`governance/`) and CI. Read `README.md` and `docs/decisions/` before changing anything;
 the decisions there are deliberate and have tests behind them. The human-facing version of
 the steps below is `docs/workflow.md`.
@@ -24,11 +24,14 @@ the steps below is `docs/workflow.md`.
 
 ## Rules
 
-- **Never hand-edit generated files**: `subgraphs/*/schema.graphql`, `subgraphs/node/owners.json`,
+- **Never hand-edit generated files**: `subgraphs/product|reviews/schema.graphql` (from code),
   `supergraph/supergraph.graphql`. Change the source (subgraph code, `governance/subgraphs.json`)
   and run `pnpm graph:update`. Commit what it regenerates.
-- **Never edit `subgraphs/node` by hand to add a Node type.** Implement `Node` and key it by
-  `id` in the owning subgraph; the node subgraph follows by itself.
+- Use `packages/rate-limit-directive` to declare `@rateLimit` and `packages/owner-check` to ask
+  another subgraph whether it has an entity; do not copy either into a subgraph.
+- **Never edit `subgraphs/node` to add a Node type or a subgraph.** It is an interface object that
+  knows no types: implement `Node` with a resolvable `@key(fields: "id")` in the owning subgraph,
+  declare `interface Node @key(fields: "id")` there and resolve it (copy `subgraphs/reviews`).
 - If `breaking-changes` fails, a client operation in `clients/operations/` uses what you
   removed or renamed. Keep the field (deprecate first); do not edit the operation to match.
 - Limits come from `@rateLimit` in the schema, scopes from `governance/scopes.json`. Neither

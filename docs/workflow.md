@@ -9,8 +9,7 @@ rules are in [AGENTS.md](../AGENTS.md).
 2. **Change the source.** Subgraph schemas come from code (`subgraphs/product/src/schema.ts`),
    never from editing `schema.graphql`. Limits and scopes are directives in that code.
 3. **Regenerate** whatever is derived: `pnpm graph:update`. It rewrites the subgraph
-   schemas, the node subgraph (`schema.graphql`, `owners.json`) and
-   `supergraph/supergraph.graphql`. Commit the result in the same change.
+   schemas and `supergraph/supergraph.graphql`. Commit the result in the same change.
 4. **Protect what clients use.** If a client starts using a field, add an operation that
    uses it to `clients/operations/`. That is what makes later renames fail the
    `breaking-changes` check.
@@ -33,7 +32,7 @@ rules are in [AGENTS.md](../AGENTS.md).
 |-----|----------|-----------|
 | `check` | something in `pnpm check` failed: tests, generated files out of date, or the router's `fmt`, `clippy` or tests | read the first failing line; run `pnpm graph:update` for a stale-file message; `cargo fmt` in `router/` |
 | `composition` | the subgraphs do not compose, or `supergraph.graphql` is stale | fix the schema conflict named, then `pnpm graph:update` |
-| `node-rules` | a Node type breaks N1-N4, or the node subgraph is stale | the message names the rule, type and subgraph; give the type `id: ID!` and a resolvable `@key(fields: "id")`, then `pnpm graph:update` |
+| `node-rules` | the Node pattern is broken in a subgraph | the message names the rule, subgraph and type: give the type `id: ID!` and a resolvable `@key(fields: "id")`, and declare `interface Node @key(fields: "id")` in that subgraph |
 | `operations` | an operation in `clients/operations` does not validate against the schema | fix the operation, or the schema change that broke it |
 | `breaking-changes` | an operation **on the target branch** would stop validating | keep the field (deprecate it first and migrate clients), do not edit the operation to match |
 | `policy` | the API schema breaks a policy rule (`policy/...`) | the message says what to change: result union, connection shape or naming |
@@ -43,10 +42,17 @@ rules are in [AGENTS.md](../AGENTS.md).
 
 ## Recipes
 
-**Add a Node type in another subgraph.** In that subgraph, implement `Node` with `id: ID!`,
-key it with `@key(fields: "id")`, and make its reference resolver return `null` for ids it
-does not know. Run `pnpm graph:update`; the node subgraph changes by itself. Do not edit
-anything under `subgraphs/node` by hand.
+**Add a subgraph.** Create `subgraphs/<name>` with a `check` script (copy `subgraphs/reviews`: it
+shows an entity it owns, a reference to another subgraph's entity, and a mutation), add
+`{ name, url }` to `governance/subgraphs.json`, add a compose service (the `healthcheck` anchor
+and a unique `PORT` are the only fiddly parts), and run `pnpm graph:update`. If it declares
+`@rateLimit`, use `packages/rate-limit-directive` so composition keeps the directive.
+
+**Add a Node type in another subgraph.** In that subgraph, make the type implement `Node` with
+`id: ID!` and `@key(fields: "id")`; if the subgraph has no Node types yet, also declare
+`interface Node @key(fields: "id")` and give it a resolver that turns a bare id into the concrete
+entity (with its `__typename`) or `null` (copy `subgraphs/reviews`). Run `pnpm graph:update`.
+Nothing under `subgraphs/node` changes, ever.
 
 **Add or change a rate limit.** Change the `@rateLimit(limit, windowSeconds, cost)` arguments
 on the field in the subgraph code, run `pnpm graph:update`. The router's source does not

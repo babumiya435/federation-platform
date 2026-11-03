@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeGlobalId, encodeGlobalId } from "./index.js";
+import { decodeGlobalId, encodeGlobalId, localIdFor } from "./index.js";
 
 describe("global id", () => {
   it("round-trips a type name and local id", () => {
@@ -32,5 +32,12 @@ describe("global id", () => {
   it("refuses to encode an invalid type name or empty local id", () => {
     expect(() => encodeGlobalId("bad name", "x")).toThrow();
     expect(() => encodeGlobalId("Product", "")).toThrow();
+  });
+
+  it("localIdFor returns the local part only for the right type", () => {
+    expect(localIdFor("Product", encodeGlobalId("Product", "p-1"))).toBe("p-1");
+    expect(localIdFor("Product", encodeGlobalId("Review", "p-1"))).toBeNull();
+    expect(localIdFor("Product", "###")).toBeNull();
+    expect(localIdFor("Product", "")).toBeNull();
   });
 });

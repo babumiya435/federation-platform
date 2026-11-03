@@ -17,6 +17,19 @@ services:
       PORT: "4001"
     healthcheck: *subgraph-healthcheck
 
+  reviews:
+    image: federation-platform/reviews:local
+    build:
+      context: .
+      dockerfile: docker/subgraph.Dockerfile
+      args:
+        PACKAGE: "@federation-platform/reviews"
+    environment:
+      PORT: "4004"
+      # Reviews asks the product subgraph whether a product exists before adding a review for it.
+      PRODUCT_SUBGRAPH_URL: http://product:4001/graphql
+    healthcheck: *subgraph-healthcheck
+
   node:
     image: federation-platform/node:local
     build:
@@ -26,6 +39,11 @@ services:
         PACKAGE: "@federation-platform/node"
     environment:
       PORT: "4002"
+      # The node subgraph learns which subgraphs own Node entities from the composed supergraph,
+      # the same file the router follows. The folder is mounted so a replaced file is seen.
+      SUPERGRAPH_PATH: /app/supergraph/supergraph.graphql
+    volumes:
+      - ./supergraph:/app/supergraph:ro
     healthcheck: *subgraph-healthcheck
 
   router:
@@ -45,6 +63,8 @@ services:
       retries: 40
     depends_on:
       product:
+        condition: service_healthy
+      reviews:
         condition: service_healthy
       node:
         condition: service_healthy

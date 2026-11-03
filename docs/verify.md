@@ -19,8 +19,8 @@ pnpm install
 pnpm check
 ```
 
-Expect exit code 0 and 94 unit tests passing (12 global-id, 32 governance, 22 node, 5
-product, 23 Rust). The governance summary lists `composition`, `node-rules`, `operations`,
+Expect exit code 0 and 128 unit tests passing (13 global-id, 2 rate-limit-directive, 7
+owner-check, 45 governance, 22 node, 4 product, 12 reviews, 23 Rust). The governance summary lists `composition`, `node-rules`, `operations`,
 `breaking-changes`, `policy` and `decisions` as `pass`. This includes the Rust `fmt`, `clippy`
 and tests, so it needs `rustup`; the first Rust build takes a few minutes.
 
@@ -49,6 +49,7 @@ reuse the cache. When the command returns, all three services are healthy.
 | Two callers apart, anonymous caller, several limited fields, rejected work never reaches a subgraph | `node scripts/rate-limit-cases.mjs` (about 40s) | 21 `ok`, "all rate-limit cases passed" |
 | Limits come from the supergraph and change without a restart | `node scripts/rate-limit-reload.mjs` | 4 `ok` |
 | Request id forwarded to every subgraph | `node scripts/request-id-check.mjs` | 3 `ok` |
+| Two subgraphs own different types, with references across the boundary | `node scripts/boundary-check.mjs` | 7 `ok`; the router log shows `involved_subgraphs: product,reviews` |
 
 ```sh
 # node(id): encode a global id, then ask for it
@@ -102,7 +103,7 @@ node e2e/add-node-type/run.mjs
 
 Expect 10 `ok` lines ending in "add-node-type scenario passed". It shows a Node type nobody can
 resolve being rejected (rule N2), then a new type resolving through the router, with only the
-node subgraph's two generated files changed. It restores everything afterwards.
+nothing under `subgraphs/node` changed. It restores everything afterwards.
 
 ## 6. CI and documentation
 

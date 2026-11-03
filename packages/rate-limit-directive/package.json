@@ -1,0 +1,22 @@
+{
+  "name": "@federation-platform/rate-limit-directive",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm test"
+  },
+  "dependencies": {
+    "graphql": "^16"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

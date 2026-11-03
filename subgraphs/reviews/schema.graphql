@@ -1,0 +1,61 @@
+extend schema
+  @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@extends", "@key", "@requiresScopes", "@composeDirective"])
+  @link(url: "https://platform.local/rate-limit/v1.0", import: ["@rateLimit"])
+  @composeDirective(name: "@rateLimit")
+
+directive @rateLimit(cost: Int! = 1, limit: Int!, windowSeconds: Int!) on FIELD_DEFINITION
+
+input AddReviewInput {
+  productId: ID!
+  rating: Int!
+  body: String!
+  authorEmail: String!
+}
+
+union AddReviewResult = AddReviewSuccess | ProductNotFoundError | InvalidRatingError
+
+type AddReviewSuccess {
+  review: Review!
+}
+
+type InvalidRatingError implements UserError {
+  message: String!
+  rating: Int!
+}
+
+type Mutation {
+  addReview(input: AddReviewInput!): AddReviewResult! @rateLimit(limit: 2, windowSeconds: 10)
+}
+
+interface Node
+  @key(fields: "id")
+{
+  id: ID!
+}
+
+type Product
+  @key(fields: "id")
+  @extends
+{
+  id: ID!
+  reviews: [Review!]! @rateLimit(limit: 20, windowSeconds: 10)
+}
+
+type ProductNotFoundError implements UserError {
+  message: String!
+  productId: ID!
+}
+
+type Review implements Node
+  @key(fields: "id")
+{
+  id: ID!
+  rating: Int!
+  body: String!
+  authorEmail: String! @requiresScopes(scopes: [["reviews:read:pii"]])
+  product: Product!
+}
+
+interface UserError {
+  message: String!
+}
