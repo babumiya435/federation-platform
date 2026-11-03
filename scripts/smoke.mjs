@@ -1,29 +1,11 @@
 #!/usr/bin/env node
 // Smoke test against a running stack (docker compose up). Exits non-zero on failure.
 //   ROUTER_URL=http://localhost:4000/graphql node scripts/smoke.mjs
-import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { createChecks, globalId, mint, post } from "./lib/stack.mjs";
 
-const routerUrl = process.env.ROUTER_URL ?? "http://localhost:4000/graphql";
-const mintScript = fileURLToPath(new URL("./mint-token.mjs", import.meta.url));
+const graphql = async (query, token) => (await post(query, token)).body;
 
-const mint = (...args) => execFileSync("node", [mintScript, ...args], { encoding: "utf8" }).trim();
-const globalId = (typeName, localId) => Buffer.from(`${typeName}:${localId}`).toString("base64url");
-
-async function graphql(query, token) {
-  const response = await fetch(routerUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify({ query }),
-  });
-  return response.json();
-}
-
-const failures = [];
-function expect(name, condition, detail) {
-  console.log(`${condition ? "ok  " : "FAIL"} ${name}`);
-  if (!condition) failures.push(`${name}: ${JSON.stringify(detail)}`);
-}
+const { expect, finish } = createChecks();
 
 const backpack = globalId("Product", "trail-backpack");
 const missing = globalId("Product", "no-such-product");
@@ -65,8 +47,4 @@ expect("a tampered token is treated as anonymous", result.data?.products?.edges?
 result = await graphql("{ products(first: 1) { edges { node { internalCost } } } }", `${internal}x`);
 expect("a tampered token grants no scopes", Boolean(result.errors) && !result.data, result);
 
-if (failures.length > 0) {
-  console.error(`\n${failures.length} check(s) failed:\n${failures.join("\n")}`);
-  process.exit(1);
-}
-console.log("\nall smoke checks passed");
+finish("all smoke checks passed");

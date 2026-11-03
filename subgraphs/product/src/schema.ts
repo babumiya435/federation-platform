@@ -3,6 +3,7 @@ import DirectivePlugin from "@pothos/plugin-directives";
 import FederationPlugin from "@pothos/plugin-federation";
 import RelayPlugin, { resolveArrayConnection } from "@pothos/plugin-relay";
 import { decodeGlobalId } from "@federation-platform/global-id";
+import { DirectiveLocation, GraphQLDirective, GraphQLInt, GraphQLNonNull } from "graphql";
 import { CatalogStore, type ProductRecord, type ReviewRecord } from "./data.js";
 
 /** Scope vocabulary: see docs/decisions/0003-authorization.md. */
@@ -19,6 +20,12 @@ const builder = new SchemaBuilder<{
   Context: Context;
   FederationScopes: (typeof SCOPES)[keyof typeof SCOPES];
   DefaultFieldNullability: false;
+  Directives: {
+    rateLimit: {
+      locations: "FIELD_DEFINITION";
+      args: { limit: number; windowSeconds: number; cost?: number };
+    };
+  };
   DefaultEdgesNullability: { list: false; items: false };
   DefaultNodeNullability: false;
 }>({
@@ -54,6 +61,7 @@ Product.implement({
     }),
     reviews: fieldBuilder.field({
       type: [Review],
+      directives: { rateLimit: { limit: 20, windowSeconds: 10 } },
       resolve: (product, _args, context) => context.store.reviewsFor(product.localId),
     }),
   }),
@@ -108,6 +116,7 @@ builder.queryType({
     products: fieldBuilder.connection({
       type: Product,
       description: "All products, Relay-paginated.",
+      directives: { rateLimit: { limit: 5, windowSeconds: 10 } },
       resolve: (_root, args, context) => resolveArrayConnection({ args }, context.store.allProducts()),
     }),
   }),
@@ -159,6 +168,7 @@ builder.mutationType({
   fields: (fieldBuilder) => ({
     addReview: fieldBuilder.field({
       type: AddReviewResult,
+      directives: { rateLimit: { limit: 2, windowSeconds: 10 } },
       args: { input: fieldBuilder.arg({ type: AddReviewInput, required: true }) },
       resolve: (_root, { input }, context) => {
         if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) {
@@ -181,6 +191,26 @@ builder.mutationType({
   }),
 });
 
+/**
+ * `@rateLimit` is enforced by the router's plugin (docs/decisions/0006-rate-limits.md).
+ * `@composeDirective` plus a `@link` for its spec is what carries it into the supergraph;
+ * without them composition drops it silently.
+ */
+const rateLimitDirective = new GraphQLDirective({
+  name: "rateLimit",
+  locations: [DirectiveLocation.FIELD_DEFINITION],
+  args: {
+    limit: { type: new GraphQLNonNull(GraphQLInt) },
+    windowSeconds: { type: new GraphQLNonNull(GraphQLInt) },
+    cost: { type: new GraphQLNonNull(GraphQLInt), defaultValue: 1 },
+  },
+});
+
 export const schema = builder.toSubGraphSchema({
   linkUrl: "https://specs.apollo.dev/federation/v2.9",
+  composeDirectives: ["@rateLimit"],
+  schemaDirectives: {
+    link: { url: "https://platform.local/rate-limit/v1.0", import: ["@rateLimit"] },
+  },
+  directives: [rateLimitDirective],
 });

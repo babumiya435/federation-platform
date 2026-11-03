@@ -27,6 +27,7 @@ know of them.
 - [0003 Authorization](docs/decisions/0003-authorization.md)
 - [0004 Node subgraph](docs/decisions/0004-node-subgraph.md)
 - [0005 Composition and gateway wiring](docs/decisions/0005-composition-and-gateway-wiring.md)
+- [0006 Rate limits](docs/decisions/0006-rate-limits.md)
 
 ## Layout
 
@@ -48,8 +49,26 @@ curl -s localhost:4000/graphql -H "authorization: Bearer $TOKEN" -H 'content-typ
   -d '{"query":"{ products(first: 2) { edges { node { name internalCost } } } }"}'
 ```
 
-Anonymous calls work too; protected fields refuse them. `node scripts/smoke.mjs` runs
-a set of checks against a running stack (`ROUTER_URL` overrides the address).
+Anonymous calls work too; protected fields refuse them. Checks against a running stack
+(`ROUTER_URL` overrides the address):
+
+```sh
+node scripts/smoke.mjs                # auth, node(id), tokens
+node scripts/rate-limit-cases.mjs     # @rateLimit behaviour, ~40s because it waits out windows
+node scripts/rate-limit-reload.mjs    # change a limit in the supergraph, no restart
+```
+
+## Rate limits
+
+`@rateLimit(limit, windowSeconds, cost = 1)` on object-type fields, enforced by a Rust
+plugin in the router. Limits are read from the supergraph, so adding or changing one is
+a schema change plus `pnpm graph:update`; the router's source is not touched and the
+router picks the new supergraph up by polling the file. A caller over a limit gets HTTP
+429 with a `RATE_LIMITED` error and the **whole request** is refused before any subgraph
+is called. Callers are identified by JWT `sub`, anonymous callers by socket address.
+Everything else (counting rules, window type, memory bound, what changes with two
+replicas, known limitations) is in
+[ADR 0006](docs/decisions/0006-rate-limits.md).
 
 The signing key in `auth/` is a **dev-only key committed on purpose** (see
 [ADR 0005](docs/decisions/0005-composition-and-gateway-wiring.md)).
@@ -58,7 +77,7 @@ The signing key in `auth/` is a **dev-only key committed on purpose** (see
 
 ```sh
 pnpm install
-pnpm check         # every check, same as CI
+pnpm check         # every check, same as CI (TypeScript, composition, Rust fmt/clippy/tests)
 pnpm graph:update  # regenerate derived artifacts: subgraph schemas, node subgraph, supergraph
 ```
 
@@ -74,8 +93,8 @@ build script runs `npm install`, so the Docker build stage installs Node.
 - [x] Repo scaffold
 - [x] Product subgraph (`subgraphs/product`, schema generated from code and committed)
 - [x] Node subgraph (`subgraphs/node`, schema derived from the other subgraphs)
-- [x] Composition and router (`governance/`, `router/`, `docker-compose.yml`; no plugin yet)
-- [ ] `@rateLimit` plugin
+- [x] Composition and router (`governance/`, `router/`, `docker-compose.yml`)
+- [x] `@rateLimit` plugin (`router/src/rate_limit/`)
 - [ ] Governance checks
 - [ ] Add-a-Node-type CI job
 - [ ] Decisions write-up, change workflow, future work

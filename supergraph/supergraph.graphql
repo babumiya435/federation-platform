@@ -1,4 +1,4 @@
-schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.5", for: EXECUTION) @link(url: "https://specs.apollo.dev/requiresScopes/v0.1", for: SECURITY) {
+schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.5", for: EXECUTION) @link(url: "https://specs.apollo.dev/requiresScopes/v0.1", for: SECURITY) @link(url: "https://platform.local/rate-limit/v1.0", import: ["@rateLimit"]) {
   query: Query
   mutation: Mutation
 }
@@ -66,12 +66,14 @@ enum join__Graph {
   PRODUCT @join__graph(name: "product", url: "http://product:4001/graphql")
 }
 
+directive @rateLimit(cost: Int! = 1, limit: Int!, windowSeconds: Int!) on FIELD_DEFINITION
+
 type Query @join__type(graph: NODE) @join__type(graph: PRODUCT) {
   node(id: ID!): Node @join__field(graph: NODE)
   """
   All products, Relay-paginated.
   """
-  products(before: String, after: String, first: Int, last: Int): QueryProductsConnection! @join__field(graph: PRODUCT)
+  products(before: String, after: String, first: Int, last: Int): QueryProductsConnection! @rateLimit(limit: 5, windowSeconds: 10) @join__field(graph: PRODUCT)
 }
 
 type Product implements Node @join__type(graph: NODE, key: "id", resolvable: false) @join__type(graph: PRODUCT, key: "id") @join__implements(graph: NODE, interface: "Node") @join__implements(graph: PRODUCT, interface: "Node") {
@@ -79,7 +81,7 @@ type Product implements Node @join__type(graph: NODE, key: "id", resolvable: fal
   name: String! @join__field(graph: PRODUCT)
   price: Float! @join__field(graph: PRODUCT)
   internalCost: Float! @join__field(graph: PRODUCT) @requiresScopes(scopes: [["catalog:read:internal"]])
-  reviews: [Review!]! @join__field(graph: PRODUCT)
+  reviews: [Review!]! @rateLimit(limit: 20, windowSeconds: 10) @join__field(graph: PRODUCT)
 }
 
 type Review implements Node @join__type(graph: NODE, key: "id", resolvable: false) @join__type(graph: PRODUCT, key: "id") @join__implements(graph: NODE, interface: "Node") @join__implements(graph: PRODUCT, interface: "Node") {
@@ -100,7 +102,7 @@ type InvalidRatingError implements UserError @join__type(graph: PRODUCT) @join__
 }
 
 type Mutation @join__type(graph: PRODUCT) {
-  addReview(input: AddReviewInput!): AddReviewResult!
+  addReview(input: AddReviewInput!): AddReviewResult! @rateLimit(limit: 2, windowSeconds: 10)
 }
 
 type PageInfo @join__type(graph: PRODUCT) {
