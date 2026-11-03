@@ -53,4 +53,18 @@ describe("product subgraph", () => {
     expect(result.errors).toBeUndefined();
     expect(result.data._entities).toEqual([{ __typename: "Product", name: "Insulated Bottle", internalCost: 9.2 }, null, null, null]);
   });
+
+  it("resolves a bare Node id to a concrete Product only if it is one of ours", async () => {
+    const query = `query($reps: [_Any!]!) { _entities(representations: $reps) { __typename ... on Product { name } } }`;
+    const result = await run(query, {
+      reps: [
+        { __typename: "Node", id: encodeGlobalId("Product", "headlamp") },
+        { __typename: "Node", id: encodeGlobalId("Product", "missing") },
+        { __typename: "Node", id: encodeGlobalId("Review", "trail-backpack-review-1") },
+        { __typename: "Node", id: "garbage" },
+      ],
+    });
+    expect(result.errors).toBeUndefined();
+    expect(result.data._entities).toEqual([{ __typename: "Product", name: "Headlamp" }, null, null, null]);
+  });
 });

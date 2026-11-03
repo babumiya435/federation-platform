@@ -5,7 +5,9 @@ extend schema
 
 directive @rateLimit(cost: Int! = 1, limit: Int!, windowSeconds: Int!) on FIELD_DEFINITION
 
-interface Node {
+interface Node
+  @key(fields: "id")
+{
   id: ID!
 }
 

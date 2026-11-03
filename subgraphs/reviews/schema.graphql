@@ -27,7 +27,9 @@ type Mutation {
   addReview(input: AddReviewInput!): AddReviewResult! @rateLimit(limit: 2, windowSeconds: 10)
 }
 
-interface Node {
+interface Node
+  @key(fields: "id")
+{
   id: ID!
 }
 

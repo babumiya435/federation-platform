@@ -1,4 +1,0 @@
-interface Node { id: ID! }
-
-# Says it is a Node but cannot be resolved by id here.
-type Gadget implements Node { id: ID! }

@@ -31,9 +31,14 @@ const builder = new SchemaBuilder<{
   defaultFieldNullability: false,
 });
 
-/** Node is declared identically in every subgraph that implements it. */
+/**
+ * Node is declared identically in every subgraph that implements it, as an entity interface:
+ * the node subgraph hands the router a bare id and each owner says whether the id is one of its
+ * entities and which concrete type it is (docs/decisions/0010-node-interface-object.md).
+ */
 const Node = builder.interfaceRef<{ id: string }>("Node").implement({
   fields: (fieldBuilder) => ({ id: fieldBuilder.id({ resolve: (node) => node.id }) }),
+  resolveType: () => Review,
 });
 
 const Review = builder.objectRef<ReviewRecord>("Review");
@@ -78,6 +83,15 @@ Review.implement({
 
 /** `id` is the federation key. Unknown or wrong-typed ids resolve to null. */
 builder.asEntity(Review, {
+  key: builder.selection<{ id: string }>("id"),
+  resolveReference: (representation, context) => {
+    const localId = localIdFor("Review", representation.id);
+    return (localId && context.store.find(localId)) || null;
+  },
+});
+
+/** The entity interface: a bare Node id resolves to a Review if, and only if, it is one of ours. */
+builder.asEntity(Node, {
   key: builder.selection<{ id: string }>("id"),
   resolveReference: (representation, context) => {
     const localId = localIdFor("Review", representation.id);

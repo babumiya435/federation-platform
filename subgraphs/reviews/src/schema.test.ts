@@ -68,6 +68,24 @@ describe("what this subgraph owns", () => {
   });
 });
 
+describe("the Node entity interface", () => {
+  it("resolves a bare Node id to a concrete Review only if it is one of ours", async () => {
+    const query = `query($reps: [_Any!]!) { _entities(representations: $reps) { __typename ... on Review { rating } } }`;
+    const result = await run(query, {
+      variables: {
+        reps: [
+          { __typename: "Node", id: encodeGlobalId("Review", "insulated-bottle-review-1") },
+          { __typename: "Node", id: encodeGlobalId("Review", "missing") },
+          { __typename: "Node", id: productId("trail-backpack") },
+          { __typename: "Node", id: "garbage" },
+        ],
+      },
+    });
+    expect(result.errors).toBeUndefined();
+    expect(result.data._entities).toEqual([{ __typename: "Review", rating: 4 }, null, null, null]);
+  });
+});
+
 describe("references across the subgraph boundary", () => {
   it("Review.product is a reference: just the product's id, for the router to fill in", async () => {
     const result = await run(
