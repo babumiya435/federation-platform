@@ -9,12 +9,12 @@ than a plan. Categories: **by hand**, **assisted**, **fully generated**.
 |-----------------|-----------------|-------|
 | Repo scaffold   | fully generated | Workspace files, CI skeleton, ADR 0001, README/LLM-USAGE skeletons. Prompted, not edited so far. |
 | Plugin (Rust)   | not started     | |
-| Node subgraph   | not started     | |
+| Node subgraph   | fully generated | Discovery rules, generator, resolver, fixtures, tests, ADR 0004. Prompted, human review pending. |
 | Global-id lib   | fully generated | `packages/global-id` with tests. Prompted, human review pending. |
 | Product subgraph| fully generated | Pothos + Yoga subgraph, seed data, tests, generated `schema.graphql`. Prompted, human review pending. |
 | Governance      | not started     | |
 | CI              | skeleton only   | Generated, see scaffold. |
-| Docs            | in progress     | ADRs 0001-0003 and README drafted by the agent; I need to confirm each decision before the call. |
+| Docs            | in progress     | ADRs 0001-0004 and README drafted by the agent; I need to confirm each decision before the call. |
 
 ## Corrections made to generated work
 

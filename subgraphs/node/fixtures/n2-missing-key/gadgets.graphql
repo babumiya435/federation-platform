@@ -1,0 +1,3 @@
+interface Node { id: ID! }
+
+type Gadget implements Node { id: ID! }

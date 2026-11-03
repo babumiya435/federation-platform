@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "check": "pnpm -r --if-present run check"
+    "check": "pnpm -r --if-present run check",
+    "graph:update": "pnpm --filter \"./subgraphs/*\" --filter \"!@federation-platform/node\" --if-present run schema:generate && pnpm --filter @federation-platform/node run sync"
   }
 }

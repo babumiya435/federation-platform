@@ -6,6 +6,8 @@ This repo is a pnpm workspace (`subgraphs/*`, `governance`) plus a Rust crate
 ## Ground rules
 
 - Run `pnpm check` before declaring work done. It is the same command CI runs.
+- After changing any subgraph schema or adding a Node type, run `pnpm graph:update` and commit
+  what it regenerates.
 - Never hand-edit generated files (schemas, supergraph, node-subgraph artifacts).
   Change the source and regenerate.
 - Record any design decision as a new numbered file in `docs/decisions/`.

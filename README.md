@@ -25,6 +25,7 @@ know of them.
 - [0001 Repo layout](docs/decisions/0001-repo-layout.md)
 - [0002 Global ids](docs/decisions/0002-global-ids.md)
 - [0003 Authorization](docs/decisions/0003-authorization.md)
+- [0004 Node subgraph](docs/decisions/0004-node-subgraph.md)
 
 ## Layout
 
@@ -34,14 +35,15 @@ See [docs/decisions/0001-repo-layout.md](docs/decisions/0001-repo-layout.md).
 
 ```sh
 pnpm install
-pnpm check      # every check, same as CI
+pnpm check         # every check, same as CI
+pnpm graph:update  # regenerate derived artifacts (subgraph schemas, node subgraph)
 ```
 
 ## Status
 
 - [x] Repo scaffold
 - [x] Product subgraph (`subgraphs/product`, schema generated from code and committed)
-- [ ] Node subgraph
+- [x] Node subgraph (`subgraphs/node`, schema derived from the other subgraphs)
 - [ ] Composition and router
 - [ ] `@rateLimit` plugin
 - [ ] Governance checks
