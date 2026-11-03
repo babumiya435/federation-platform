@@ -5,11 +5,9 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/server.ts",
-    "sync": "tsx src/sync.ts",
-    "sync:check": "tsx src/sync.ts --check",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm test && pnpm sync:check"
+    "check": "pnpm typecheck && pnpm test"
   },
   "dependencies": {
     "@apollo/subgraph": "2.13.3",

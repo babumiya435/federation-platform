@@ -39,6 +39,11 @@ services:
         PACKAGE: "@federation-platform/node"
     environment:
       PORT: "4002"
+      # The node subgraph learns which subgraphs own Node entities from the composed supergraph,
+      # the same file the router follows. The folder is mounted so a replaced file is seen.
+      SUPERGRAPH_PATH: /app/supergraph/supergraph.graphql
+    volumes:
+      - ./supergraph:/app/supergraph:ro
     healthcheck: *subgraph-healthcheck
 
   router:

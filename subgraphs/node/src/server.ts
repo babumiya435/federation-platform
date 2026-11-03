@@ -1,9 +1,15 @@
 import { createServer } from "node:http";
+import { fileURLToPath } from "node:url";
 import { createYoga } from "graphql-yoga";
+import { ownerLookup } from "./owners.js";
 import { buildNodeSchema, type NodeContext } from "./schema.js";
 
+// The same composed supergraph the router follows. In compose it is mounted at this path.
+const supergraphPath =
+  process.env.SUPERGRAPH_PATH ?? fileURLToPath(new URL("../../../supergraph/supergraph.graphql", import.meta.url));
+
 const yoga = createYoga<object, NodeContext>({
-  schema: buildNodeSchema(),
+  schema: buildNodeSchema({ ownerUrls: ownerLookup(supergraphPath) }),
   graphqlEndpoint: "/graphql",
   context: ({ request }) => ({ requestId: request.headers.get("x-request-id") }),
 });
@@ -16,5 +22,5 @@ createServer((request, response) => {
   }
   return yoga(request, response);
 }).listen(port, () => {
-  console.log(`node subgraph listening on :${port}/graphql`);
+  console.log(`node subgraph listening on :${port}/graphql (supergraph: ${supergraphPath})`);
 });
