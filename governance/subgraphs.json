@@ -1,0 +1,4 @@
+[
+  { "name": "product", "url": "http://product:4001/graphql" },
+  { "name": "node", "url": "http://node:4002/graphql" }
+]
