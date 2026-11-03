@@ -6,6 +6,7 @@
   "scripts": {
     "compose": "tsx src/compose.ts",
     "check:composition": "tsx src/compose.ts --check",
+    "check:node-rules": "tsx src/cli/node-rules.ts",
     "check:operations": "tsx src/cli/operations.ts",
     "check:breaking": "tsx src/cli/breaking.ts",
     "check:policy": "tsx src/cli/policy.ts",

@@ -8,7 +8,7 @@ import { repoRoot } from "../repo.js";
  */
 const checks: { name: string; command: string[] }[] = [
   { name: "composition", command: ["--filter", "@federation-platform/governance", "run", "check:composition"] },
-  { name: "node-rules", command: ["--filter", "@federation-platform/node", "run", "sync:check"] },
+  { name: "node-rules", command: ["--filter", "@federation-platform/governance", "run", "check:node-rules"] },
   { name: "operations", command: ["--filter", "@federation-platform/governance", "run", "check:operations"] },
   { name: "breaking-changes", command: ["--filter", "@federation-platform/governance", "run", "check:breaking"] },
   { name: "policy", command: ["--filter", "@federation-platform/governance", "run", "check:policy"] },

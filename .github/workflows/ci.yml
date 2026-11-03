@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: pnpm --filter @federation-platform/node run sync:check
+      - run: pnpm --filter @federation-platform/governance run check:node-rules
 
   operations:
     name: operations
