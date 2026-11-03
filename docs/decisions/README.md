@@ -11,6 +11,7 @@ Short numbered records, written when each decision was made. Status is `accepted
 | [0005](0005-composition-and-gateway-wiring.md) | Composition and gateway wiring | composition library, supergraph, JWT, activating a new supergraph, request id |
 | [0006](0006-rate-limits.md) | Rate limits | directive arguments, caller identity, counting, window, rejection, memory bound |
 | [0007](0007-schema-governance.md) | Schema governance | the six checks, what breaking-change detection guarantees, branch protection |
+| [0009](0009-reviews-subgraph.md) | Reviews in their own subgraph | two subgraphs owning different types, references across the boundary, who owns a Node type |
 
 To record a new decision, add the next number, keep it to context, decision, trade-offs, and
 link it here. Decisions that change an earlier one say so in both files.

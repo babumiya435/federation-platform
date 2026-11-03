@@ -3,14 +3,16 @@
 A small federated GraphQL platform in one repository:
 
 - a **Rust gateway** (Hive Router) with a `@rateLimit` plugin, JWT validation and `@requiresScopes`;
-- a **product subgraph** (TypeScript) with `Product` and `Review` as Relay `Node` entities;
+- **two domain subgraphs** (TypeScript) that own different types and refer to each other:
+  `product` owns `Product`, `reviews` owns `Review`, both as Relay `Node` entities;
 - a **node subgraph** (TypeScript) that owns `Query.node(id)` and keeps working when someone
   adds a Node type elsewhere, with no hand edits;
 - **schema governance** that runs without a human, locally with one command and in CI.
 
 ```
 client ──► router (Hive Router, Rust)       JWT · @requiresScopes · @rateLimit · request id
-            ├──► product subgraph           Product, Review, products, addReview
+            ├──► product subgraph           Product, products
+            ├──► reviews subgraph           Review, addReview, Product.reviews
             └──► node subgraph              Query.node, asks the owning subgraph
 ```
 
@@ -62,6 +64,7 @@ Scripts that talk to a running stack (`ROUTER_URL` overrides the address):
 ```sh
 node scripts/smoke.mjs              # auth, node(id), tokens
 node scripts/request-id-check.mjs   # the router's request id reaches the subgraphs
+node scripts/boundary-check.mjs     # one query crosses the product and reviews subgraphs
 node scripts/rate-limit-cases.mjs   # @rateLimit behaviour (~40s: it waits out windows)
 node scripts/rate-limit-reload.mjs  # change a limit in the supergraph, no restart
 node e2e/add-node-type/run.mjs      # add a Node type elsewhere; see below
@@ -70,9 +73,12 @@ node e2e/add-node-type/run.mjs      # add a Node type elsewhere; see below
 ## Layout
 
 ```
-subgraphs/product   Pothos + Yoga subgraph; schema generated from code, committed
+subgraphs/product   owns Product; Pothos + Yoga, schema generated from code, committed
+subgraphs/reviews   owns Review and addReview; extends Product with reviews
 subgraphs/node      node(id); its schema and owners.json are generated, never edited
 packages/global-id  the one place ids are encoded and decoded
+packages/owner-check  asks a subgraph whether it has an entity (node and reviews use it)
+packages/rate-limit-directive  how a subgraph declares @rateLimit so it survives composition
 governance/         composition, operation and breaking-change checks, policy, decisions
 clients/operations  client operations the schema checks run against
 router/             Rust crate: Hive Router + rate_limit and request_id plugins
@@ -82,10 +88,17 @@ e2e/                the add-a-Node-type scenario
 docs/               decisions (ADRs), change workflow
 ```
 
-## The four decisions
+## Design decisions
 
-Each is argued in an ADR, consistent with the code and tests, and listed here with the
-main trade-off. All seven ADRs are indexed in [docs/decisions](docs/decisions/README.md).
+The brief states four outcomes and leaves the design to us. Each design below is argued in an
+ADR, consistent with the code and tests, and listed with its main trade-off. The ADRs are
+indexed in [docs/decisions](docs/decisions/README.md).
+
+**Two subgraphs that own different types** ([ADR 0009](docs/decisions/0009-reviews-subgraph.md)).
+`product` owns `Product`; `reviews` owns `Review` and `addReview` and extends `Product` with
+`reviews`. References cross the boundary both ways, using the shared id as the key. `addReview`
+asks the product subgraph whether the product exists. Trade-off: writes depend on the product
+subgraph being up.
 
 **Global ids** ([ADR 0002](docs/decisions/0002-global-ids.md)). `id = base64url("Type:localId")`,
 encoded in one shared package, and the id *is* the federation key (`@key(fields: "id")`).
@@ -198,12 +211,21 @@ file back afterwards.
 
 | Job | What it checks |
 |-----|----------------|
-| `check` | everything `pnpm check` runs: TypeScript tests and generated-file drift, composition, governance, and the router's `cargo fmt`, `clippy` and unit tests (94 unit tests in total) |
+| `check` | everything `pnpm check` runs: TypeScript tests and generated-file drift, composition, governance, and the router's `cargo fmt`, `clippy` and unit tests (115 unit tests in total) |
 | `composition`, `node-rules`, `operations`, `breaking-changes`, `policy`, `decisions` | one governance check each |
-| `stack` | builds the images (cached), starts docker compose, runs the four stack scripts |
+| `stack` | builds the images (cached), starts docker compose, runs the five stack scripts |
 | `add-node-type` | the end-to-end scenario above |
 
 All nine passed on the pull request that added them.
+
+### The brief's four outcomes, and where CI proves each
+
+| Outcome | Proven by |
+|---------|-----------|
+| 1. Limits and scopes enforced at the gateway, for signed-in and anonymous callers | job `stack`: `smoke.mjs` (scopes), `rate-limit-cases.mjs` (limits), `rate-limit-reload.mjs` (changing one needs no router change) |
+| 2. Any entity fetchable by id from one place, and a new entity type keeps working | job `add-node-type`; `smoke.mjs` and `boundary-check.mjs` resolve Products and Reviews through `node(id)` |
+| 3. Two or more subgraphs owning different types, with a reference across the boundary | job `stack`: `boundary-check.mjs` asserts from the router's own log that one query called `product`, then `reviews`, then `product` again |
+| 4. Governance without a human | the six governance jobs and `check` |
 
 ## Not done, and known limits
 

@@ -43,6 +43,12 @@ rules are in [AGENTS.md](../AGENTS.md).
 
 ## Recipes
 
+**Add a subgraph.** Create `subgraphs/<name>` with a `check` script (copy `subgraphs/reviews`: it
+shows an entity it owns, a reference to another subgraph's entity, and a mutation), add
+`{ name, url }` to `governance/subgraphs.json`, add a compose service (the `healthcheck` anchor
+and a unique `PORT` are the only fiddly parts), and run `pnpm graph:update`. If it declares
+`@rateLimit`, use `packages/rate-limit-directive` so composition keeps the directive.
+
 **Add a Node type in another subgraph.** In that subgraph, implement `Node` with `id: ID!`,
 key it with `@key(fields: "id")`, and make its reference resolver return `null` for ids it
 does not know. Run `pnpm graph:update`; the node subgraph changes by itself. Do not edit

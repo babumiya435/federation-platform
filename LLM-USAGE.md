@@ -7,7 +7,7 @@ Tool: **Claude Code** (Anthropic's CLI coding agent), used interactively in a te
 **An agent produced the whole repository.** Every source file, test, script, workflow,
 fixture and document here was written by Claude Code from my prompts, in batches: scaffold,
 product subgraph, node subgraph, composition and router, rate-limit plugin, governance,
-CI integration, docs. I did not hand-write code. Commits are authored under my git
+CI integration, docs, and a later change that split Review into its own subgraph. I did not hand-write code. Commits are authored under my git
 identity, contain no co-author trailer, and were made by the agent at my direction.
 
 ## By part
@@ -15,8 +15,7 @@ identity, contain no co-author trailer, and were made by the agent at my directi
 | Part | Category | Notes |
 |------|----------|-------|
 | Plugin (Rust): `router/` | **fully generated** (prompted, not edited by hand) | `rate_limit` (rules, counting, limiter, plugin) and `request_id`, 23 unit tests, ADR 0006, the stack scripts. My Rust is reading-level: the design is mine to defend, the code is the agent's. |
-| Node subgraph: `subgraphs/node`, `packages/global-id` | **fully generated** | Discovery rules N1-N4, generator, resolver with the owner check, fixtures, 34 tests, ADRs 0002 and 0004. |
-| Product subgraph: `subgraphs/product` | **fully generated** | Pothos + Yoga schema from code, seed data, tests, generated `schema.graphql`. |
+| Subgraphs: `subgraphs/product`, `subgraphs/reviews`, `subgraphs/node`, `packages/global-id`, `packages/owner-check`, `packages/rate-limit-directive` | **fully generated** | Product (owns `Product`) and reviews (owns `Review`, extends `Product`, owns `addReview`) as Pothos + Yoga schemas from code; node: discovery rules N1-N4, generator, resolver with the owner check; the shared packages; fixtures and 60 tests; ADRs 0002, 0004 and 0009. |
 | Governance: `governance/`, `clients/` | **fully generated** | Composition, operation and breaking-change checks, policy lint, decision checks, a failing fixture per rule, 32 tests, ADR 0007. |
 | CI: `.github/`, `docker-compose.yml`, `docker/`, `e2e/` | **fully generated** | Nine jobs, image build with cache, the add-a-Node-type scenario. |
 | Docs: README, ADRs, `docs/`, `AGENTS.md`, this file | **fully generated** | The design choices in the ADRs were proposed by the agent and written up as they were made; I merged them and I am the one who defends them. |
@@ -49,10 +48,10 @@ identity, contain no co-author trailer, and were made by the agent at my directi
 
 ## How the output was validated
 
-Automated, and run by CI on every pull request: 94 unit tests (12 global-id, 22 node, 5
-product, 32 governance, 23 Rust), a failing fixture for every governance and Node rule,
+Automated, and run by CI on every pull request: 115 unit tests (13 global-id, 2 rate-limit-directive,
+7 owner-check, 24 node, 3 product, 11 reviews, 32 governance, 23 Rust), a failing fixture for every governance and Node rule,
 and scripts against the real stack (smoke, rate-limit cases, limit reload without restart,
-request-id forwarding, the add-a-Node-type scenario). All nine CI jobs passed on GitHub.
+request-id forwarding, the subgraph boundary check, the add-a-Node-type scenario). All nine CI jobs passed on GitHub.
 
 My own manual run-through of every requirement ([docs/verify.md](docs/verify.md)) found one defect
 that CI had missed: the supergraph reload described in correction 3. The reload script only
@@ -68,6 +67,9 @@ fixed. These were found by testing, not by review:
   the router's own id (ADR 0005).
 - A test expected a fragment spread six times to cost six units; GraphQL merges identical
   fields, so it costs one. The test and ADR 0006 were corrected.
+- While splitting Review out, the generated `owners.json` showed that a subgraph which only
+  adds fields to `Product` would count as its owner, so `node(id)` would have answered "exists"
+  for every product id. The definition of an owner was tightened (ADR 0009, ADR 0004).
 - An unfinished placeholder in the limiter's eviction function, an incorrect test fixture
   for base64 padding, and three Docker build failures for the router.
 
