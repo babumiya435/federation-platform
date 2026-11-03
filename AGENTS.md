@@ -24,13 +24,14 @@ the steps below is `docs/workflow.md`.
 
 ## Rules
 
-- **Never hand-edit generated files**: `subgraphs/*/schema.graphql`, `subgraphs/node/owners.json`,
+- **Never hand-edit generated files**: `subgraphs/product|reviews/schema.graphql` (from code),
   `supergraph/supergraph.graphql`. Change the source (subgraph code, `governance/subgraphs.json`)
   and run `pnpm graph:update`. Commit what it regenerates.
 - Use `packages/rate-limit-directive` to declare `@rateLimit` and `packages/owner-check` to ask
   another subgraph whether it has an entity; do not copy either into a subgraph.
-- **Never edit `subgraphs/node` by hand to add a Node type.** Implement `Node` and key it by
-  `id` in the owning subgraph; the node subgraph follows by itself.
+- **Never edit `subgraphs/node` to add a Node type or a subgraph.** It is an interface object that
+  knows no types: implement `Node` with a resolvable `@key(fields: "id")` in the owning subgraph,
+  declare `interface Node @key(fields: "id")` there and resolve it (copy `subgraphs/reviews`).
 - If `breaking-changes` fails, a client operation in `clients/operations/` uses what you
   removed or renamed. Keep the field (deprecate first); do not edit the operation to match.
 - Limits come from `@rateLimit` in the schema, scopes from `governance/scopes.json`. Neither

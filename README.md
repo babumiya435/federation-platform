@@ -75,7 +75,7 @@ node e2e/add-node-type/run.mjs      # add a Node type elsewhere; see below
 ```
 subgraphs/product   owns Product; Pothos + Yoga, schema generated from code, committed
 subgraphs/reviews   owns Review and addReview; extends Product with reviews
-subgraphs/node      node(id); its schema and owners.json are generated, never edited
+subgraphs/node      Query.node as an interface object: knows no types, never changes
 packages/global-id  the one place ids are encoded and decoded
 packages/owner-check  asks a subgraph whether it has an entity (node and reviews use it)
 packages/rate-limit-directive  how a subgraph declares @rateLimit so it survives composition
@@ -107,15 +107,16 @@ one id in client queries, entity representations and `node(id)`, with no mapping
 Trade-off: renaming a GraphQL type changes its ids, and ids are forgeable, so access is
 enforced on fields, never by an id being unguessable.
 
-**Node** ([ADR 0004](docs/decisions/0004-node-subgraph.md)). The node subgraph's schema and an
-`owners.json` are *derived* from the other subgraphs' committed schemas by
-`pnpm graph:update`: any object type that `implements Node` is eligible. `node(id)` decodes
-the id, checks the type is eligible, then **asks the owning subgraph whether the entity
-exists** before returning a stub; the router fetches the real fields. Unknown or
-malformed ids return `null`. Four rules (N1-N4) reject declarations the router could not
-resolve. The existence check exists because we found, by testing, that the router never
-calls the owner for `node(id) { __typename id }`, so a missing product came back as a
-stub. Trade-off: one extra round trip per `node(id)`.
+**Node** ([ADR 0010](docs/decisions/0010-node-interface-object.md), which replaced a generated-schema
+design, [ADR 0004](docs/decisions/0004-node-subgraph.md)). The node subgraph is static: `type Node
+@key(fields: "id") @interfaceObject` and `Query.node`. It knows no types. Each owning subgraph
+declares `interface Node @key(fields: "id")` and resolves a bare id to its concrete entity or
+`null`; the router asks the owners which type an id is. So **adding an entity type, or a whole
+subgraph, changes nothing in the node subgraph**, and CI asserts that. Unknown ids return `null`:
+a spike showed the router otherwise answers with a stub typed `Node`, so `node(id)` first asks the
+owners, which it finds in the live supergraph. Static checks in governance enforce the pattern.
+Trade-off: every owner implements the interface-level resolver, and an existing id costs the
+owner two questions (the probe and the router's own).
 
 **Authorization** ([ADR 0003](docs/decisions/0003-authorization.md)). The router's built-in
 `@requiresScopes`, scopes named `<domain>:<action>:<sensitivity>` (`catalog:read:internal`,
@@ -156,7 +157,7 @@ each as its own job, so a failure names the check that failed.
 | Check | Fails when |
 |-------|-----------|
 | `composition` | the subgraphs do not compose, or `supergraph.graphql` is stale |
-| `node-rules` | a Node type breaks rules N1-N4, or the node subgraph is stale |
+| `node-rules` | the Node pattern is broken: a Node type without `id: ID!` or a resolvable key, a subgraph without the `Node` entity interface, a malformed interface object |
 | `operations` | an operation in `clients/operations` no longer validates against the schema |
 | `breaking-changes` | an operation in `clients/operations` **on the target branch** no longer validates against the proposed schema |
 | `policy` | the API schema breaks a policy rule: mutation result unions, Relay connections, naming |
@@ -203,15 +204,15 @@ whether or not an agent does the typing; agent-specific rules are in [AGENTS.md]
 Adding a Node type in another subgraph needs no edit to the node subgraph. CI proves it
 (job `add-node-type`, `e2e/add-node-type/run.mjs`): it adds a throwaway subgraph that owns a
 new type, runs `pnpm graph:update`, starts the stack and resolves the new type through the
-router's `node(id)`. It asserts that only the node subgraph's two generated files changed,
-shows that a Node type nobody can resolve is rejected by the same workflow, and puts every
-file back afterwards.
+router's `node(id)`. It asserts that **`git status` shows nothing under `subgraphs/node`**, shows
+that a subgraph that does not declare the `Node` entity interface is rejected by the `node-rules`
+check, and puts every file back afterwards.
 
 ## What CI runs
 
 | Job | What it checks |
 |-----|----------------|
-| `check` | everything `pnpm check` runs: TypeScript tests and generated-file drift, composition, governance, and the router's `cargo fmt`, `clippy` and unit tests (115 unit tests in total) |
+| `check` | everything `pnpm check` runs: TypeScript tests and generated-file drift, composition, governance, and the router's `cargo fmt`, `clippy` and unit tests (128 unit tests in total) |
 | `composition`, `node-rules`, `operations`, `breaking-changes`, `policy`, `decisions` | one governance check each |
 | `stack` | builds the images (cached), starts docker compose, runs the five stack scripts |
 | `add-node-type` | the end-to-end scenario above |

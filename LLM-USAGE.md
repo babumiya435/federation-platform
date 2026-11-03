@@ -15,8 +15,8 @@ identity, contain no co-author trailer, and were made by the agent at my directi
 | Part | Category | Notes |
 |------|----------|-------|
 | Plugin (Rust): `router/` | **fully generated** (prompted, not edited by hand) | `rate_limit` (rules, counting, limiter, plugin) and `request_id`, 23 unit tests, ADR 0006, the stack scripts. My Rust is reading-level: the design is mine to defend, the code is the agent's. |
-| Subgraphs: `subgraphs/product`, `subgraphs/reviews`, `subgraphs/node`, `packages/global-id`, `packages/owner-check`, `packages/rate-limit-directive` | **fully generated** | Product (owns `Product`) and reviews (owns `Review`, extends `Product`, owns `addReview`) as Pothos + Yoga schemas from code; node: discovery rules N1-N4, generator, resolver with the owner check; the shared packages; fixtures and 60 tests; ADRs 0002, 0004 and 0009. |
-| Governance: `governance/`, `clients/` | **fully generated** | Composition, operation and breaking-change checks, policy lint, decision checks, a failing fixture per rule, 32 tests, ADR 0007. |
+| Subgraphs: `subgraphs/product`, `subgraphs/reviews`, `subgraphs/node`, `packages/global-id`, `packages/owner-check`, `packages/rate-limit-directive` | **fully generated** | Product (owns `Product`) and reviews (owns `Review`, extends `Product`, owns `addReview`) as Pothos + Yoga schemas from code; node: a static interface object with a supergraph-driven owner probe; the entity-interface resolvers in the owners; the shared packages; 60 tests; ADRs 0002, 0009 and 0010 (0004 was superseded). |
+| Governance: `governance/`, `clients/` | **fully generated** | Composition, operation and breaking-change checks, policy lint, decision checks, a failing fixture per rule (including the Node rules), 45 tests, ADR 0007. |
 | CI: `.github/`, `docker-compose.yml`, `docker/`, `e2e/` | **fully generated** | Nine jobs, image build with cache, the add-a-Node-type scenario. |
 | Docs: README, ADRs, `docs/`, `AGENTS.md`, this file | **fully generated** | The design choices in the ADRs were proposed by the agent and written up as they were made; I merged them and I am the one who defends them. |
 
@@ -48,8 +48,8 @@ identity, contain no co-author trailer, and were made by the agent at my directi
 
 ## How the output was validated
 
-Automated, and run by CI on every pull request: 115 unit tests (13 global-id, 2 rate-limit-directive,
-7 owner-check, 24 node, 3 product, 11 reviews, 32 governance, 23 Rust), a failing fixture for every governance and Node rule,
+Automated, and run by CI on every pull request: 128 unit tests (13 global-id, 2 rate-limit-directive,
+7 owner-check, 22 node, 4 product, 12 reviews, 45 governance, 23 Rust), a failing fixture for every governance and Node rule,
 and scripts against the real stack (smoke, rate-limit cases, limit reload without restart,
 request-id forwarding, the subgraph boundary check, the add-a-Node-type scenario). All nine CI jobs passed on GitHub.
 
@@ -69,7 +69,11 @@ fixed. These were found by testing, not by review:
   fields, so it costs one. The test and ADR 0006 were corrected.
 - While splitting Review out, the generated `owners.json` showed that a subgraph which only
   adds fields to `Product` would count as its owner, so `node(id)` would have answered "exists"
-  for every product id. The definition of an owner was tightened (ADR 0009, ADR 0004).
+  for every product id. The definition was tightened (ADR 0009).
+- A spike of the `@interfaceObject` pattern against the real router showed that, for an unknown id,
+  the router returns a stub typed `Node` (an interface name, not a real type) instead of `null`.
+  `node(id)` therefore asks the owners first (ADR 0010). That design replaced the generated-schema
+  one entirely after the brief asked for no change to shared code.
 - An unfinished placeholder in the limiter's eviction function, an incorrect test fixture
   for base64 padding, and three Docker build failures for the router.
 

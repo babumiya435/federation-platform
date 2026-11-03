@@ -18,7 +18,7 @@ its own status on the PR. `pnpm check` includes them.
 | Check | What it does | Where |
 |-------|--------------|-------|
 | `composition` | composes the subgraphs; fails on composition errors or when the committed `supergraph.graphql` is stale | `governance/src/compose.ts` |
-| `node-rules` | rules N1 to N4 for Node types (ADR 0004) and a stale node subgraph | `subgraphs/node` |
+| `node-rules` | the Node pattern: types, the entity interface and the interface object (ADR 0010) | `governance/src/node-rules.ts` |
 | `operations` | every operation in `clients/operations` on **this branch** validates against the proposed API schema | `governance/src/cli/operations.ts` |
 | `breaking-changes` | every operation in `clients/operations` on the **target branch** validates against the proposed API schema | `governance/src/cli/breaking.ts` |
 | `policy` | schema policy rules on the API schema | `governance/src/policy.ts` |

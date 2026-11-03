@@ -34,10 +34,11 @@ router (a subgraph must not depend on the gateway).
 spec link and `@composeDirective` live once in `packages/rate-limit-directive`. Composition drops
 a custom directive silently unless all three are present in every subgraph that uses it.
 
-**Who owns a Node type.** With two subgraphs describing `Product`, "owner" needs a definition: a
-subgraph owns a Node type when it declares `implements Node` on it and can resolve it by id.
-`reviews` can resolve any `Product` id (it only needs the id to add `reviews`), so counting it as
-an owner would make the node subgraph answer "exists" for every product id. ADR 0004 is updated.
+**Who answers for a Node type.** Ownership is declared, not inferred: a subgraph answers for a Node
+type by declaring `implements Node` on it and resolving the `Node` entity interface (ADR 0010).
+`reviews` can resolve any `Product` id (it only needs the id to add `reviews`), but it never
+declares `Product` as a Node, so it is never asked whether a product exists. Counting it as an
+owner would make `node(id)` answer "exists" for every product id.
 
 ## Consequences
 

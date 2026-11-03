@@ -19,8 +19,8 @@ pnpm install
 pnpm check
 ```
 
-Expect exit code 0 and 115 unit tests passing (13 global-id, 2 rate-limit-directive, 7
-owner-check, 32 governance, 24 node, 3 product, 11 reviews, 23 Rust). The governance summary lists `composition`, `node-rules`, `operations`,
+Expect exit code 0 and 128 unit tests passing (13 global-id, 2 rate-limit-directive, 7
+owner-check, 45 governance, 22 node, 4 product, 12 reviews, 23 Rust). The governance summary lists `composition`, `node-rules`, `operations`,
 `breaking-changes`, `policy` and `decisions` as `pass`. This includes the Rust `fmt`, `clippy`
 and tests, so it needs `rustup`; the first Rust build takes a few minutes.
 
@@ -103,7 +103,7 @@ node e2e/add-node-type/run.mjs
 
 Expect 10 `ok` lines ending in "add-node-type scenario passed". It shows a Node type nobody can
 resolve being rejected (rule N2), then a new type resolving through the router, with only the
-node subgraph's two generated files changed. It restores everything afterwards.
+nothing under `subgraphs/node` changed. It restores everything afterwards.
 
 ## 6. CI and documentation
 

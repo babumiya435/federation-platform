@@ -1,6 +1,8 @@
 # 0004 - Node subgraph: discovery, routing, rejection
 
-Status: accepted
+Status: **superseded by [0010](0010-node-interface-object.md)**. Kept for the reasoning that led
+there: the generated-schema design below worked and was tested, but still changed two committed
+files in the node subgraph for every new entity type.
 
 ## Context
 
