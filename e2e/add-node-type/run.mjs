@@ -7,8 +7,8 @@
 //   node e2e/add-node-type/run.mjs            (ROUTER_PORT=4100 if 4000 is taken)
 //
 // It adds a throwaway `gadgets` subgraph (from ./template), and puts everything back
-// afterwards, including on failure. It refuses to start if tracked files are modified,
-// because it restores them with `git checkout`.
+// afterwards, including on failure: files from git, and the node image rebuilt without Gadget.
+// It refuses to start if tracked files are modified, because it restores them with `git checkout`.
 import { spawnSync } from "node:child_process";
 import { cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -126,6 +126,18 @@ try {
   run("docker", ["compose", ...COMPOSE, "down", "-v", "--remove-orphans"], { capture: true });
   restoreRepository();
   run("pnpm", ["install", "--frozen-lockfile"], { capture: true });
+
+  // The node image built above knows about Gadget. Restoring the files does not touch images,
+  // so a later `docker compose up` would serve a node subgraph that asks a gadgets owner that
+  // no longer exists. Rebuild it from the restored files and drop the throwaway image.
+  run("docker", ["compose", "build", "node"], { capture: true });
+  run("docker", ["image", "rm", "-f", "federation-platform/gadgets:local"], { capture: true });
+  const leftover = run(
+    "docker",
+    ["run", "--rm", "federation-platform/node:local", "sh", "-c", "grep -c Gadget /repo/subgraphs/node/schema.graphql || true"],
+    { capture: true },
+  );
+  expect("the node image was rebuilt without Gadget, so the stack is back to normal", leftover.output.trim().endsWith("0"), leftover.output.trim());
 }
 
 finish("add-node-type scenario passed");
