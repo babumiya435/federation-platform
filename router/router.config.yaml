@@ -20,3 +20,12 @@ authorization:
     enabled: true
     unauthorized:
       mode: reject
+
+plugins:
+  rate_limit:
+    enabled: true
+    # A plugin that fails to start must stop the router: running without it would
+    # silently serve every limited field unprotected.
+    warn_on_error: false
+    config:
+      max_buckets: 10000

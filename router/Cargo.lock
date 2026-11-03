@@ -1755,6 +1755,8 @@ version = "0.1.0"
 dependencies = [
  "hive-router",
  "ntex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -13,3 +13,7 @@ hive-router = "=0.3.10"
 # The #[hive_router::main] macro expands to ntex code, so the crate must depend on it
 # at the version hive-router uses.
 ntex = { version = "=3.12.3", features = ["tokio"] }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"
