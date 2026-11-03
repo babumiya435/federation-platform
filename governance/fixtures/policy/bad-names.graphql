@@ -1,0 +1,4 @@
+type Query { Products(Limit: Int): [product_item!]! }
+type product_item { ID: ID! }
+enum currency { usd }
+input make_thing { Name: String }

@@ -1,0 +1,5 @@
+type Query { ping: Int }
+type Mutation { addProduct: AddProductResult! }
+union AddProductResult = A | B
+type A { id: ID! }
+type B { id: ID! }

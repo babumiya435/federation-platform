@@ -1,0 +1,5 @@
+type Query { products: ProductConnection! }
+type ProductConnection { edges: [ProductEdge!]! pageInfo: PageInfo! }
+type ProductEdge { node: Product! cursor: String! }
+type PageInfo { hasNextPage: Boolean! }
+type Product { id: ID! }

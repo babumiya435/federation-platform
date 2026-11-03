@@ -1,27 +1,81 @@
 name: ci
 
+# No path filters on purpose: required status checks must run on every pull request.
 on:
   pull_request:
   push:
     branches: [main]
 
 jobs:
+  # Everything, exactly as `pnpm check` runs it locally: TypeScript tests, generated-file
+  # drift, composition, governance, and the router's fmt, clippy and unit tests.
   check:
+    name: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
-          cache: pnpm
+          fetch-depth: 0 # breaking-changes compares against the target branch
+      - uses: ./.github/actions/setup
       # Reads router/rust-toolchain.toml. hive-router's build script runs `npm install`,
       # which the Node setup above provides.
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           rustflags: ""
           cache-workspaces: router
-      - run: pnpm install --frozen-lockfile
-      # TypeScript checks (tests, generated-file drift, composition) and the router's
-      # fmt, clippy and unit tests: the same command you run locally.
       - run: pnpm check
+
+  # The governance checks again, one job each, so a failure names the check that failed
+  # and branch protection can require them individually (see ADR 0007).
+  composition:
+    name: composition
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @federation-platform/governance run check:composition
+
+  node-rules:
+    name: node-rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @federation-platform/node run sync:check
+
+  operations:
+    name: operations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @federation-platform/governance run check:operations
+
+  breaking-changes:
+    name: breaking-changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @federation-platform/governance run check:breaking
+        env:
+          # On a pull request, the branch it will merge into; elsewhere the default (origin/main).
+          GOVERNANCE_BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+
+  policy:
+    name: policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @federation-platform/governance run check:policy
+
+  decisions:
+    name: decisions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm --filter @federation-platform/governance run check:decisions

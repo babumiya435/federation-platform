@@ -1,0 +1,3 @@
+interface Node { id: ID! }
+type Query { products: [Product!]! @rateLimit(limit: 5, windowSeconds: 10) }
+type Product implements Node { id: ID! cost: Float! @requiresScopes(scopes: [["catalog:read:internal"]]) }

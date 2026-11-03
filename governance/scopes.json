@@ -1,0 +1,4 @@
+{
+  "catalog:read:internal": "Internal commercial data on catalogue types (for example Product.internalCost)",
+  "reviews:read:pii": "Personal data on reviews (for example Review.authorEmail)"
+}

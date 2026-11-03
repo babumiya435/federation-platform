@@ -1,0 +1,15 @@
+query ProductDetail($id: ID!) {
+  node(id: $id) {
+    __typename
+    ... on Product {
+      id
+      name
+      price
+      reviews {
+        id
+        rating
+        body
+      }
+    }
+  }
+}

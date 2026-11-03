@@ -1,0 +1,24 @@
+mutation AddReview($input: AddReviewInput!) {
+  addReview(input: $input) {
+    __typename
+    ... on AddReviewSuccess {
+      review {
+        id
+        rating
+        product {
+          id
+          name
+        }
+      }
+    }
+    ... on UserError {
+      message
+    }
+    ... on InvalidRatingError {
+      rating
+    }
+    ... on ProductNotFoundError {
+      productId
+    }
+  }
+}

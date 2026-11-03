@@ -28,6 +28,7 @@ know of them.
 - [0004 Node subgraph](docs/decisions/0004-node-subgraph.md)
 - [0005 Composition and gateway wiring](docs/decisions/0005-composition-and-gateway-wiring.md)
 - [0006 Rate limits](docs/decisions/0006-rate-limits.md)
+- [0007 Schema governance](docs/decisions/0007-schema-governance.md)
 
 ## Layout
 
@@ -73,6 +74,43 @@ replicas, known limitations) is in
 The signing key in `auth/` is a **dev-only key committed on purpose** (see
 [ADR 0005](docs/decisions/0005-composition-and-gateway-wiring.md)).
 
+## Schema governance
+
+```sh
+pnpm governance        # every check below, with a pass/fail summary
+```
+
+| Check | Fails when |
+|-------|-----------|
+| `composition` | the subgraphs do not compose, or `supergraph.graphql` is stale |
+| `node-rules` | a Node type breaks rules N1-N4, or the node subgraph is stale |
+| `operations` | an operation in `clients/operations` no longer validates against the schema |
+| `breaking-changes` | an operation in `clients/operations` **on the target branch** no longer validates against the proposed schema |
+| `policy` | the API schema breaks a policy rule (mutation result unions, Relay connections, naming) |
+| `decisions` | `@requiresScopes` or `@rateLimit` is misplaced, malformed or uses an unlisted scope |
+
+Each check prints its own result with a rule id and a location, for example:
+
+```
+breaking-changes failed with 1 problem:
+  [breaking/operation-no-longer-valid] clients/operations/ListProducts.graphql:7:9  Cannot query field "name" on type "Product". (in query ListProducts) [operation exists on origin/main @ 67129fa; this change would break it]
+```
+
+To put a field under protection, add an operation that uses it to `clients/operations/`.
+What the breaking-change check guarantees, and what it cannot see (clients that are not
+checked in, changed meaning, output nullability, enum values sent as variables), is spelled
+out in [ADR 0007](docs/decisions/0007-schema-governance.md). In CI each check is its own
+job so it shows up as its own status.
+
+### Branch protection
+
+Checks only block a merge if GitHub is told to require them. For `main`, in Settings ->
+Branches (or a ruleset): require a pull request with an approving review; require these
+status checks: `check`, `composition`, `node-rules`, `operations`, `breaking-changes`,
+`policy`, `decisions`; require branches to be up to date before merging (so
+`breaking-changes` always compares against the current `main`); block force pushes and
+deletions, and include administrators. Details and reasons are in ADR 0007.
+
 ## Commands
 
 ```sh
@@ -95,6 +133,6 @@ build script runs `npm install`, so the Docker build stage installs Node.
 - [x] Node subgraph (`subgraphs/node`, schema derived from the other subgraphs)
 - [x] Composition and router (`governance/`, `router/`, `docker-compose.yml`)
 - [x] `@rateLimit` plugin (`router/src/rate_limit/`)
-- [ ] Governance checks
+- [x] Governance checks (`governance/`, `clients/operations/`)
 - [ ] Add-a-Node-type CI job
 - [ ] Decisions write-up, change workflow, future work

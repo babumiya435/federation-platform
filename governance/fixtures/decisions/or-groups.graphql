@@ -1,0 +1,1 @@
+type Product { cost: Float! @requiresScopes(scopes: [["catalog:read:internal"], ["reviews:read:pii"]]) }
