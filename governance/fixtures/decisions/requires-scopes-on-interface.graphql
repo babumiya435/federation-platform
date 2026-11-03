@@ -1,0 +1,1 @@
+interface Node { id: ID! @requiresScopes(scopes: [["catalog:read:internal"]]) }

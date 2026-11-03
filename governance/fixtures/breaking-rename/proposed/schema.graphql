@@ -1,0 +1,5 @@
+# The proposed schema: Product.name was renamed to title, and price is unchanged.
+type Query { products(first: Int, after: String): ProductConnection! }
+type ProductConnection { edges: [ProductEdge!]! }
+type ProductEdge { node: Product! }
+type Product { id: ID! title: String! price: Float! }

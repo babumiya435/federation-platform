@@ -1,0 +1,11 @@
+type Query { products(first: Int, after: String): ProductConnection! }
+type ProductConnection { edges: [ProductEdge!]! pageInfo: PageInfo! }
+type ProductEdge { node: Product! cursor: String! }
+type PageInfo { hasNextPage: Boolean! endCursor: String }
+type Product { id: ID! name: String! }
+type Mutation { addProduct(input: AddProductInput!): AddProductResult! }
+input AddProductInput { name: String! }
+union AddProductResult = AddProductSuccess | NameTakenError
+type AddProductSuccess { product: Product! }
+type NameTakenError { message: String! }
+enum Currency { USD EUR }

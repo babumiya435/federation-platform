@@ -1,0 +1,2 @@
+interface Searchable { search: [String!]! }
+type Query implements Searchable { search: [String!]! @rateLimit(limit: 5, windowSeconds: 10) }

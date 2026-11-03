@@ -1,0 +1,4 @@
+type Query { products(first: Int, after: String): ProductConnection! }
+type ProductConnection { edges: [ProductEdge!]! }
+type ProductEdge { node: Product! }
+type Product { id: ID! }

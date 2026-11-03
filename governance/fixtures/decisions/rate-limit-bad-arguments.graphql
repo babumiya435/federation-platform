@@ -1,0 +1,6 @@
+type Query {
+  zero: Int @rateLimit(limit: 0, windowSeconds: 10)
+  noWindow: Int @rateLimit(limit: 5)
+  hugeCost: Int @rateLimit(limit: 2, windowSeconds: 10, cost: 3)
+  typo: Int @rateLimit(limit: 5, windowSeconds: 10, burst: 9)
+}

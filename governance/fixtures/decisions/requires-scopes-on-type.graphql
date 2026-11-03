@@ -1,0 +1,1 @@
+type Product @requiresScopes(scopes: [["catalog:read:internal"]]) { id: ID! }
