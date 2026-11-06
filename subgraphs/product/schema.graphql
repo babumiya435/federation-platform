@@ -22,7 +22,8 @@ type Product implements Node
   @key(fields: "id")
 {
   id: ID!
-  name: String!
+  name: String! @deprecated(reason: "Use title.")
+  title: String!
   price: Float!
   internalCost: Float! @requiresScopes(scopes: [["catalog:read:internal"]])
 }

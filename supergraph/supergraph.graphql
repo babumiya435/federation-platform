@@ -86,7 +86,8 @@ type PageInfo @join__type(graph: PRODUCT) {
 
 type Product implements Node @join__type(graph: PRODUCT, key: "id") @join__type(graph: REVIEWS, key: "id", extension: true) @join__implements(graph: PRODUCT, interface: "Node") {
   id: ID!
-  name: String! @join__field(graph: PRODUCT)
+  name: String! @join__field(graph: PRODUCT) @deprecated(reason: "Use title.")
+  title: String! @join__field(graph: PRODUCT)
   price: Float! @join__field(graph: PRODUCT)
   internalCost: Float! @join__field(graph: PRODUCT) @requiresScopes(scopes: [["catalog:read:internal"]])
   reviews: [Review!]! @rateLimit(limit: 20, windowSeconds: 10) @join__field(graph: REVIEWS)
