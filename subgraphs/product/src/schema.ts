@@ -56,7 +56,7 @@ Product.implement({
   interfaces: [Node],
   fields: (fieldBuilder) => ({
     id: fieldBuilder.exposeID("id"),
-    name: fieldBuilder.exposeString("name"),
+    title: fieldBuilder.exposeString("name"),
     price: fieldBuilder.exposeFloat("price"),
     internalCost: fieldBuilder.exposeFloat("internalCost", {
       requiresScopes: [[SCOPES.catalogInternal]],

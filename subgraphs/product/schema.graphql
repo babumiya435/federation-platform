@@ -22,7 +22,7 @@ type Product implements Node
   @key(fields: "id")
 {
   id: ID!
-  name: String!
+  title: String!
   price: Float!
   internalCost: Float! @requiresScopes(scopes: [["catalog:read:internal"]])
 }
